@@ -13,7 +13,7 @@
 ## 技术栈
 
 ### 前端 (Frontend)
-- **Framework**: Flutter 3.x (Dart)
+- **Framework**: Flutter 3.41.4 (Dart 3.11.1)
 - **状态管理/数据请求**: Dio, GetStorage
 - **数据库**: sqflite (本地离线缓存)
 - **美化**: flex_color_scheme, fl_chart, bot_toast
