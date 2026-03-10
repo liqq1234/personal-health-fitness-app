@@ -1,0 +1,432 @@
+{
+  "appTitle": "Free Fitness",
+  "todaySteps": "Today's Steps",
+
+  "report": "Reports",
+
+  "mainNutrients": "{num, select, 0{Energy} 1{Calorie} 2{Protein} 3{Fat} 4{CHO} 5{RDI} other{Other} }",
+  "@mainNutrients": {
+  "description": "主要营养素标签"
+  },
+  "fatNutrients": "{num, select, 0{TotalFat} 1{SaturatedFat} 2{TransFat} 3{puFat} 4{muFat} other{Other} }",
+  "@fatNutrients": {
+  "description": "脂肪相关营养素标签"
+  },
+  "choNutrients": "{num, select, 0{TotalCHO} 1{Sugar} 2{DietaryFiber} other{Other} }",
+  "@choNutrients": {
+  "description": "碳水相关营养素标签"
+  },
+  "microNutrients": "{num, select, 0{Sodium} 1{Potassium} 2{Cholesterol} other{Other} }",
+  "@microNutrients": {
+  "description": "微量元素相关营养素标签"
+  },
+
+  "unitLabels": "{num, select, 0{g} 1{mg} 2{kcal} 3{kj} 4{cm} 5{kg} 6{s} 7{time(s)} 8{minutes} other{Other} }",
+  "@unitLabels": {
+  "description": "各种单位"
+  },
+
+  "boolLabels": "{num, select, 0{Yes} 1{No} 2{True} 3{False} other{Other} }",
+  "@boolLabels": {
+  "description": "是否真假各种标签"
+  },
+
+  "averageGoal": "Nutrient Goals",
+  "dailyGoal": "Daily Goals",
+  "dailyGoalBars": "Daily Goals Chart",
+
+  "moduleTitles": "{ titles, select, 0{Training} 1{Dietary} 2{Daily Calendar} 3{User & Settings} other{Other} }",
+  "@moduleTitles": {
+  "description": "各个模块主页appbar的标题文字"
+  },
+
+  "changeAvatarLabels": "{ num, select, 0{Change Avatar} 1{Options} 2{Camera} 3{Gallery} other{Other} }",
+  "@changeAvatarLabels": {
+  "description": "用户设置页面切换头像需要的几个标签"
+  },
+
+  "bakLabels": "{ num, select, 0{Backup & Restore} 1{Full Backup} 2{Overwrite Restore}  other{Other} }",
+  "@bakLabels": {
+  "description": "用户与设置页面的备份与恢复的标签"
+  },
+  "bakOpNote": "Confirm exporting all data?",
+  "bakSuccessNote": "Has been saved to {dir}.",
+  "resSuccessNote": "The original data has been deleted, and the backup data has been restored.",
+
+  "restIntervals":"Rest time between follow-up exercises (s)",
+  "chooseSeconds":"Choose a duration(s)",
+
+  "bmiLabels": "{ num, select, 0{UWT} 1{NWT} 2{OWT} 3{Fat} 4{Obesity} other{Other} }",
+  "@bmiLabels": {
+  "description": "bmi的几个标签"
+  },
+  "weightRecord": "Weight Record",
+
+  "userInfoLabels": "{num, select, 0{UserName} 1{UserCode} 2{Gender} 3{DateOfBirth} 4{Height} 5{Weight} 6{Description} other{Other} }",
+  "@userInfoLabels": {
+  "description": "用户基本信息的栏位"
+  },
+
+  "userGoalLabels": "{num, select, 0{RDA} 1{RestIntervals} other{Other} }",
+  "@userInfoLabels": {
+  "description": "用户设置目标的栏位"
+  },
+
+  "training": "Training",
+  "trainingReports": "Training Reports",
+  "trainingReportsSubtitle":"Reports management",
+
+  "trainedReportLabels": "{num, select, 0{Total Workouts} 1{Trained Time} 2{Rest Time} 3{Paused Time} 4{Total (minutes)} 5{LastTrained} 6{Date} 7{Name} 8{Duration} other{其他} }",
+  "@trainedReportLabels": {
+  "description": "训练记录报告的标签"
+  },
+
+  "trainedCalendarLabels": "{num, select, 0{Start Time} 1{End Time} 2{Trained Duration} 3{Paused Duration} 4{Rest Duration} 5{Start & End Time} other{其他} }",
+  "@trainedCalendarLabels": {
+  "description": "训练记录报告日历展示的标签"
+  },
+
+  "trainedReportExport":"Export trained records",
+  "trainedDoneNote":"Completed. Duration {totolTime} s:",
+
+
+  "exercise": "Exercises",
+  "exerciseLabel": "Exercise",
+  "exerciseSubtitle": "Exercise management",
+  "exerciseDeleteAlert":"Are you sure you need to delete this exercise: {exerciseName}? Deletion is not recoverable!",
+  "exerciseInUse":"Exercise {exerciseName} in use, deletion is not supported",
+ 
+ 
+  "exerciseQuerys": "{num, select, 0{Muscles} 1{Code} 2{Name} 3{Level} 4{Mechanic} 5{Category} 6{Equipment} 7{Counting} other{other} }",
+  "@exerciseQuerys": {
+  "description": "常用exercise查询用的标签"
+  },
+
+  "exerciseLabels": "{num, select, 0{Force} 1{Std. Duration} 2{Primary Muscles} 3{Secondary Muscles} 4{Instructions} 5{TTS Notes} 6{Exercise Images} 7{isCustom} other{其他} }",
+  "@exerciseLabels": {
+  "description": "除了上面查询的，其他的exercise的栏位标签"
+  },
+
+  "exerciseImport":"Import Exercise Json",
+  "exerciseLabelNote":"LTR: index - code - name - level",
+  "exerciseImagePath":"Select image public folder",
+
+  "exerciseDetail": "Exercise Detail",
+
+  "workout": "Workout",
+  "workoutSubtitle": "Workout management",
+
+  "workouts": "Workouts",
+  "workoutQuerys": "{num, select, 0{Name} 1{Category} 2{Level} 3{级别} 4{类型} 5{分类} 6{器械} 7{计量} other{其他} }",
+  "@workoutQuerys": {
+  "description": "常用workout查询用的标签"
+  },
+  "groupDeleteAlert":"Are you sure you need to delete the workout: {workoutName}? Deletion is not recoverable!",
+  "groupInUse":"Workout {workoutName} in use, deletion is not supported",
+ 
+  "modifyGroupLabels": "{num, select, 0{Workout Add} 1{Workout Modify} 2{主要肌肉} 3{次要肌肉} 4{技术要点} 5{语音提示要点} 6{动作图片} 7{用户上传} other{其他} }",
+  "@modifyGroupLabels": {
+  "description": "修改或新建训练动作组的标签"
+  },
+
+ "actionLabel": "{num, select, 0{Action} 1{Actions} other{Other} }",
+  "@actionLabel": {
+  "description": "常用action相关的标签"
+  },
+
+  "actionDetailLabel": "{num, select, 0{Dur.(s)} 1{Rpt. (times)} 2{Eqpt. (kg)} other{Other} }",
+  "@actionDetailLabel": {
+  "description": "在action详情弹窗中显示的栏位"
+  },
+
+  "actionConfigLabel": "{num, select, 0{Action Configuration Dialog} 1{Eqpt.Wgt.(kg)} 2{Click to select exercise} other{Other} }",
+  "@actionConfigLabel": {
+  "description": "action list页面中，在action详情弹窗中显示的栏位和新增action时exercise 列表页面显示的栏位"
+  },
+
+
+  "workoutFollowLabel": "{num, select, 0{Follow Workout} 1{Ready} 2{REST} 3{Next} 4{Congratulations} other{Other} }",
+  "@workoutFollowLabel": {
+  "description": "训练跟练页面相关栏位"
+  },
+
+  "noTtsEngine":"No available TTS engine",
+  "followTtsLabel": "{num, select, 0{Ready, the next action is } 1{It's half the time.} 2{Start} 3{Congratulations,the workout is over.} 4{Take a break, the next action} other{其他} }",
+  "@followTtsLabel": {
+  "description": "训练跟练页面tts相关文字"
+  },
+
+
+  "quitFollowNotes": "{num, select, 0{Workout Pause } 1{Are you sure want to quit this workout?} other{Other} }",
+  "@quitFollowNotes": {
+  "description": "退出跟练页面是的弹窗标题和正文"
+  },
+
+  "previewReport":"Report",
+
+  "plans": "Plans",
+  "plan": "Plan",
+  "planSubtitle": "Plan management",
+
+  "planQuerys": "{num, select, 0{Name} 1{Category} 2{Level} other{Other} }",
+  "@planQuerys": {
+  "description": "常用 plan 查询用的标签"
+  },
+ 
+  "planDeleteAlert":"Are you sure you need to delete the plan: {planName}? Deletion is not recoverable!",
+  "planInUse":"Plan {planName} in use, deletion is not supported",
+ 
+  "modifyPlanLabels": "{num, select, 0{Plan Add} 1{Plan Modify} 2{Name} 3{Code} 4{Category} 5{Level} 6{Plan Period} 7{Description} other{Other} }",
+  "@modifyPlanLabels": {
+  "description": "修改或新建 plan 的标签"
+  },
+
+
+  "dayNumber":"Day {number}",
+  "dayCount":"total {number} day(s)",
+  "incompleteLabel":"Never Completed",
+
+
+  "itemCount": "{count} in total",
+
+  "dietary":"Dietary",
+  "dietaryReports":"Dietary Reports",
+  "dietaryReportsSubtitle":"Reports management",
+  
+  "foodCompo":"Food Composition",
+  "foodCompoSubtitle": "Nutritional composition",
+  "dietaryRecords":"Dietary Records",
+  "dietaryRecordsSubtitle":"Daily dietary records",
+  "mealGallery":"Meal Gallery",
+  "mealGallerySubtitle":"View daily meal photos",
+
+  "mealPhotos":"Meal Photos",
+
+  "mealLabels": "{num, select, 0{Breakfast} 1{Lunch} 2{Dinner} 3{Other} other{其他} }",
+  "@mealLabels": {
+  "description": "餐次信息"
+  },
+    
+
+  "food":"Foods",
+  "notFound":"NotFound?",
+  "foodName":"Name",
+  "foodDetail":"Food Detail",
+  "foodBasicInfo":"Food Basic Info",
+  "foodNutrientInfo":"Food Nutrient Info",
+  "servingUnit":"Serving Unit",
+  "servingEquivalence":"Equivalence Unit",
+  "nutrientLabel":"Nutrients",
+  "mainNutrientLabel":"Main Nutrients",
+  "allNutrientLabel":"Nutritional Information",
+  "eatableSize":"Eatable",
+
+  "dietaryReportExport":"Export dietary records",
+
+  "foodTableMainLabels": "{num, select, 0{Unit} 1{Energy(kcal)} 2{Protein(g)} 3{Fat(g)} 4{CHO(g)} 5{Micronutrient(mg)} other{Other} }",
+  "@foodTableMainLabels": {
+  "description": "表格展示营养素的主要栏位"
+  },
+
+  "foodLabels": "{num, select, 0{Product} 1{Brand}  2{Tags} 3{Category} 4{Description} 5{Images} 6{Code} other{Other} }",
+  "@foodLabels": {
+  "description": "表格展示营养素的主要栏位"
+  },
+
+  "countLabels": "{num, select, 0{Total} 1{AVG} other{Other} }",
+  "@countLabels": {
+  "description": "总计平均等标签"
+  },
+
+
+  "foodImport":"Import Food Json",
+  "importFinished":"Data has been inserted into the database",
+  "uploadingItem":"An overview of the {obj} items:",
+  "jsonFiles":"Json Files:",
+  "foodLabelNote":"LTR: index - code - name - energy(kcal)",
+
+  "rangeLabels": "{num, select, 0{Yesterday} 1{Today} 2{Tomorrow} 3{LastWeek} 4{ThisWeek} other{Other} }",
+  "@rangeLabels": {
+  "description": "几个常见的时间范围"
+  },
+
+  "calorieLabels": "{num, select, 0{Calories Remaining} 1{Calories Consumed} 2{Calories} other{Other} }",
+  "@calorieLabels": {
+  "description": "饮食日记条目的头部说明"
+  },
+
+  
+  "illustratedDesc": "{num, select, 0{The Proportion} 1{Main Nutrient Intake} 2{Calories} other{Other} }",
+  "@illustratedDesc": {
+  "description": "饮食日记条目的底部的图示说明"
+  },
+ 
+
+  "photoLabel":"Photo ({count})",
+  "photoUnitLabel":"photo(s)",
+
+  "dietaryAddTabs": "{num, select, 0{Recently Eaten} 1{Food List} 2{Size} 3{Unit} 4{New Unit?} 5{Meal}  other{Other} }",
+  "@dietaryAddTabs": {
+  "description": "饮食日记条目新增时的tab页面标题"
+  },
+
+  "dietaryReportTabs": "{num, select, 0{Calories} 1{Macros} 2{Nutrients} other{Other} }",
+  "@dietaryReportTabs": {
+  "description": "饮食报告页面的tab页面标题和表单栏位"
+  },
+
+  "intakeLabels": "{num, select, 0{Foods Eaten} 1{Macros Eaten} 2{Times Eaten} 3{Cals(kcal)} other{Other} }",
+  "@intakeLabels": {
+  "description": "饮食报告页面食物摄入相关栏位"
+  },
+
+
+  "goalAchieved":"{pct}% of goal",
+  "goalLabel":"Goal: {number}",
+
+  
+  "dietaryCalendar":"Dietary Calendar",
+
+ "dietaryCalendarLabels": "{num, select, 0{Month Intake} 1{Today Intake} 2{Detailed Intake} other{Other} }",
+  "@dietaryCalendarLabels": {
+  "description": "饮食日历表格统计的栏位标签"
+  },
+
+  "diary":"Diary",
+  "me":"Me",
+  "closeLabel":"Close",
+  "appExitInfo":"Are you sure to exit Free Fitness?",
+
+  "userInfo":"User Info",
+
+  "diaryLables": "{num, select, 0{Diary Calendar} 1{Timeline} 2{Title} 3{Content} other{Other} }",
+  "@diaryLables": {
+  "description": "手记显示模式"
+  },
+
+  "calenderLables": "{num, select, 0{Month} 1{2 weeks} 2{Week} other{Other} }",
+  "@calenderLables": {
+  "description": "日历表格切换显示模式"
+  },
+
+  "diaryTitleNote":" All is well ^~^",
+  "diaryTagsNote":" tags (split by entering comma or semi)",
+  "richTextToolNote":" Expand Quill Toolbar",
+
+  "lastModified":"Last Modified",
+  "gmtCreate":"Created Time",
+
+
+  "confirmLabel":"Confirm",
+  "cancelLabel":"Cancel",
+  "resetLabel":"reset",
+  "queryLabel":"query",
+  "moreLabel":"more",
+  "moreDetail": "More Detail",
+  "lessLabel":"less",
+  "enterLabel":"Enter",
+  "skipLabel":"Not Now",
+  "backLabel":"Back",
+  "saveLabel":"Save",
+  "eidtLabel":"Edit {name}",
+  "updateLabel":"Update",
+  "addLabel":"Add {name}",
+  "deleteLabel":"Delete",
+  "recordLabel":"Record",
+  "manageLabel":"Manage",
+  "removeSelected": "Remove Selected",
+  "searchLabel":"Search",
+  "optionsLabel":"Options",
+  "imageUploadLabel":"Image Upload",
+  "detailLabel":"Detail",
+  "modifiedSuccessLabel":"Successfully Modified",
+  "startLabel":"Start",
+  "pauseLabel":"Pause",
+  "resumeLabel":"Resume",
+  "restartLabel":"Restart",
+  "prevLabel":"Prev",
+  "nextLabel":"Next",
+  "doneLabel":"Done",
+
+  "switchUser":"Switch User",
+
+  "noteLabel":"note",
+  "tipLabel":"Notification",
+  "itemLabel":"{num} item(s)",
+
+  "userGuide":"User Guide",
+  "questionAndAnswer":"Q&A",
+
+  
+
+  "alertTitle": "Alert",
+
+  "noRecordNote": "No data yet.",
+  "noOtherUser": " No other users",
+
+
+  "lastDayLabels": "last {count} days",
+  "@lastDayLabels": {
+  "description": "最近几天的选项标签"
+  },
+
+  "allRecords":"All data in selected range:",
+  "serialLabel":"No.",
+  "measuredTime":"Measured Time",
+  "selectDateRange": "Change Range",
+
+  "queryKeywordHintText": "Please enter {key} keywords",
+
+
+  "heightLabel":"Height{unit}",
+  "weightLabel":"Weight{unit}",
+  "nameLabel":"please input your name",
+  "genderLabel":"please select your gender",
+  "exceptionWarningTitle":"Exception Warning",
+  "deleteConfirm":"Delete Confirm",
+  "deleteNote":"Are you sure to delete the selected data?{data}",
+  "deletedInfo":"The item has been deleted.",
+  "initInfo":"Could you please provide some basic info? \nOr just click 'Next' button to use default info.",
+  "moreSettings":"More Settings",
+  "languageSetting":"Language",
+  "followSystem":"System",
+  "themeSetting":"Theme Mode",
+  "darkMode":"Dark Mode",
+  "lightMode":"Light Mode",
+  "settingLabels": "{ setting, select, 0{Basic Info} 1{Weight Trend} 2{Intake Goal} 3{Training Setting} 4{Backup & Restore} 5{More Settings} other{Unknown Setting} }",
+  
+  "exportRangeNote":"Select export range",
+ 
+  "importJsonButtons": "{ num, select, 0{Select Json} 1{Clear Data} other{Unknown Setting} }",
+  "importJsonError":"Import json file error",
+  "importJsonErrorText":"Filename:\n{path}\n\nError:\n{msg}",
+
+  "invalidFormErrorText":"Form validation failed",
+  "uniqueErrorText":"{text} already exists",
+  "noStorageErrorText":"The user has disabled access to internal storage and cannot import JSON files",
+  "requiredErrorText":"{text} required",
+  "numericErrorText":"{text} must be numeric",
+
+
+  "aiSuggestionTitle":"AI Dietary Health Analysis",
+  "aiSuggestionHint":"You can ask me questions for advice on healthy eating",
+  "regeneration":"regen",
+  "copiedHint":"cpoied",
+  "apiErrorHint":"The HTTP API reports an error, please check the network or try again later!",
+  "noStorageHint":"File management permissions have not been granted, and some features may be affected.",
+  "permissionRequest":"Permission Request",
+  "featuresRestrictionNote":"The features of display images, import exercise, import food composition, and data backup in the application require file management permissions. Please allow them.",
+
+  "appNote":"Note",
+
+  "initFinished":"InitFinished",
+  "initializing":"Initializing, please wait for 3 minutes",
+  "initializingFood":"Initializing Food Composition Data...",
+  "initializingExercise":"Initializing Exercise Data...",
+  "loadEmbeddedExercise":"Load embedded exercise",
+  "confirmLoadEmbeddedExercise":"Load embedded exercise? This will overwrite duplicates.",
+  "loadEmbeddedFood":"Load embedded Food",
+  "confirmLoadEmbeddedFood":"Load embedded food? This will overwrite duplicates."
+
+
+}

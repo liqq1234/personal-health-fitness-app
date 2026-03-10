@@ -1,0 +1,97 @@
+import 'package:bot_toast/bot_toast.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter_quill/flutter_quill.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:form_builder_validators/form_builder_validators.dart';
+
+import '../core/constants/constants.dart';
+import '../core/theme/app_theme.dart';
+import '../l10n/app_localizations.dart';
+import '../models/cus_app_localizations.dart';
+import '../services/app_restart_service.dart';
+import 'splash_screen.dart';
+
+class FreeFitnessApp extends StatefulWidget {
+  const FreeFitnessApp({super.key});
+
+  @override
+  State<FreeFitnessApp> createState() => _FreeFitnessAppState();
+}
+
+class _FreeFitnessAppState extends State<FreeFitnessApp> {
+  // 应用程序的根部件
+  @override
+  Widget build(BuildContext context) {
+    // debugPrint("getUserId--${box.read(LocalStorageKey.userId)}");
+    // debugPrint("language--${box.read('language')}; mode--${box.read('mode')}");
+
+    return AppRestartWrapper(
+      child: ScreenUtilInit(
+        designSize: const Size(360, 640), // 1080p / 3 ,单位dp
+        minTextAdapt: true,
+        splitScreenMode: true,
+        builder: (_, widget) {
+          return MaterialApp(
+            debugShowCheckedModeBanner: false, // 关闭 Debug 标识
+            title: 'free_fitness',
+            onGenerateTitle: (context) {
+              return CusAL.of(context).appTitle;
+            },
+            localizationsDelegates: const [
+              AppLocalizations.delegate,
+              GlobalMaterialLocalizations.delegate,
+              GlobalWidgetsLocalizations.delegate,
+              GlobalCupertinoLocalizations.delegate,
+              // form builder表单验证的多国语言
+              FormBuilderLocalizations.delegate,
+              // flutter_quill多国语言
+              FlutterQuillLocalizations.delegate,
+            ],
+            supportedLocales: const [
+              Locale('zh', 'CH'),
+              Locale('en', 'US'),
+              ...FormBuilderLocalizations.supportedLocales,
+            ],
+
+            // locale: null,
+            // locale: const Locale('en'),
+            locale: box.read('language') == 'system'
+                ? null
+                : Locale(box.read('language')),
+
+            // theme: ThemeData(
+            //   primarySwatch: Colors.blue,
+            //   // ？？？2023-11-22：升级到flutter 3.16 之后默认为true，现在还没有兼容修改部件，后续再启用
+            //   useMaterial3: false,
+            //   appBarTheme: AppBarTheme(
+            //     color: Colors.blue,
+            //     iconTheme: const IconThemeData(color: Colors.white),
+            //     titleTextStyle: TextStyle(fontSize: 20.sp),
+            //   ),
+            // ),
+            darkTheme: AppTheme.dark(),
+            themeMode: box.read('mode') == 'dark'
+                ? ThemeMode.dark
+                : box.read('mode') == 'light'
+                ? ThemeMode.light
+                : ThemeMode.system,
+            theme: AppTheme.light(),
+            // 1. call BotToastInit
+            builder: (context, child) {
+              child = BotToastInit()(context, child ?? Container());
+              return child;
+            },
+            // 2. registered route observer
+            navigatorObservers: [BotToastNavigatorObserver()],
+
+            // 使用了initalRoute就不能使用home了，参看文档：
+            // https://flutter.cn/docs/cookbook/navigation/named-routes#2-define-the-routes
+            // 使用SplashScreen作为入口，所有初始化在其中完成
+            home: const SplashScreen(),
+          );
+        },
+      ),
+    );
+  }
+}

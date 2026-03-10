@@ -1,0 +1,39 @@
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/resources/architecture_overview.md
+!**/src/main/resources/data_management.md
+!**/src/main/resources/recommendation_algorithms.md
+!**/src/main/resources/setup_guide.md
+
+### STS ###
+.apt_generated
+.classpath
+.factorypath
+.project
+.settings
+.springBeans
+.sts4-cache
+
+### IntelliJ IDEA ###
+.idea
+*.iws
+*.iml
+*.ipr
+out/
+gen/
+
+### NetBeans ###
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.netbeans_automatic_build
+/extra_ansible_inventory
+
+### VS Code ###
+.vscode/
+
+### Operating System ###
+desktop.ini
+Thumbs.db
+.DS_Store

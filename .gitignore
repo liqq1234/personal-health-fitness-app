@@ -1,0 +1,12 @@
+.agent/
+.shared/
+.idea/
+.gemini/
+*.log
+tmp/
+openspec/
+参考源码/
+新论文/
+论文/
+论文_4500字版/
+资料/
