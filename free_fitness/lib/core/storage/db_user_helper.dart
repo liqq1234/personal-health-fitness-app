@@ -12,6 +12,8 @@ import '../../models/user_state.dart';
 
 import 'ddl_user.dart';
 import '../dio_client/cus_http_client.dart';
+import '../dio_client/api_endpoints.dart';
+import '../constants/constants.dart';
 
 class DBUserHelper {
   ///
@@ -48,15 +50,10 @@ class DBUserHelper {
     return userDb;
   }
 
-  // 创建训练数据库相关表
+  // 创建训练数据库相关表 (Decommissioned profile tables)
   void _createDb(Database db, int newVersion) async {
-    print("开始创建表 _createDb……");
-
-    await db.transaction((txn) async {
-      txn.execute(UserDdl.ddlForUser);
-      txn.execute(UserDdl.ddlForIntakeDailyGoal);
-      txn.execute(UserDdl.ddlForWeightTrend);
-    });
+    print("开始创建表 _createDb (Profile tables moved to cloud)……");
+    // No local tables for user profile anymore
   }
 
   // 关闭数据库
@@ -144,120 +141,41 @@ class DBUserHelper {
   }
 
   ///
-  ///  Helper 的相关方法
+  ///  Helper 的相关方法 (Cloud Only for User)
   ///
 
-  ///***********************************************/
-  /// user 的相关操作
-  ///
-
-  // 查询用户
-  // ？？？现在就是显示登录用户信息，用户密码登录成功之后记住信息？(缓存还不太懂，这里就账号密码id查询)
-  Future<User?> queryUser({
-    int? userId,
-    String? userName,
-    String? password,
-  }) async {
-    Database db = await database;
-
-    var where = [];
-    var whereArgs = [];
-
-    if (userId != null) {
-      where.add(" user_id = ? ");
-      whereArgs.add(userId);
-    }
-    if (userName != null) {
-      where.add(" user_name = ? ");
-      whereArgs.add(userName);
-    }
-    if (password != null) {
-      where.add(" password = ? ");
-      whereArgs.add(password);
-    }
-
-    final userRows = await db.query(
-      UserDdl.tableNameOfUser,
-      where: where.isNotEmpty ? where.join(" AND ") : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-    );
-
-    final userlist = userRows.map((row) => User.fromMap(row)).toList();
-
-    // 如果本地查不到，且传了 userId，尝试从后端拉取
-    if (userlist.isEmpty && userId != null) {
-      try {
-        var response = await HttpUtils.get(
-          path: "/users/$userId",
-          showLoading: false,
-        );
-        if (response != null) {
-          User remoteUser = User.fromMap(response);
-          // 存入本地缓存
-          await insertUserList([remoteUser]);
-          return remoteUser;
-        }
-      } catch (e) {
-        print("Fetch remote user failed: $e");
-      }
-    }
-
-    return userlist.isNotEmpty ? userlist[0] : null;
-  }
-
-  // 查询用户列表
-  Future<List<User>?> queryUserList({String? userName}) async {
-    Database db = await database;
-
-    var where = [];
-    var whereArgs = [];
-
-    if (userName != null) {
-      where.add(" user_name like ? ");
-      whereArgs.add("%$userName%");
-    }
-
-    final userRows = await db.query(
-      UserDdl.tableNameOfUser,
-      where: where.isNotEmpty ? where.join(" AND ") : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-    );
-
-    return userRows.map((row) => User.fromMap(row)).toList();
-  }
-
-  // 批量插入用户(有单条的，也放到list)
-  Future<List<Object?>> insertUserList(List<User> userList) async {
-    var batch = (await database).batch();
-
-    for (var item in userList) {
-      batch.insert(
-        UserDdl.tableNameOfUser,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
-    }
-
-    return batch.commit();
-  }
-
-  // 修改单条 user
-  Future<int> updateUser(User user) async {
-    // 1. 本地保存
-    int result = await (await database).update(
-      UserDdl.tableNameOfUser,
-      user.toMap(),
-      where: 'user_id = ?',
-      whereArgs: [user.userId],
-    );
-
-    // 2. 异步同步到后端 MySQL
+  // 查询用户 (Only from Cloud)
+  Future<User?> queryUser({int? userId}) async {
+    if (userId == null) return null;
     try {
-      HttpUtils.put(
-        path: "/users/${user.userId}",
+      var response = await HttpUtils.get(
+        path: "/users/$userId",
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        return User.fromMap(response['data']);
+      }
+    } catch (e) {
+      print("Cloud queryUser failed: $e");
+    }
+    return null;
+  }
+
+  // 查询用户列表 (Currently not fully supported by backend for 'all users', returning current only)
+  Future<List<User>?> queryUserList() async {
+    var user = await queryUser(userId: CacheUser.userId);
+    return user != null ? [user] : [];
+  }
+
+  // 修改单条 user (Only to Cloud)
+  Future<int> updateUser(User user) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.userUpdate}/${user.userId}",
         data: {
           "userName": user.userName,
           "gender": user.gender,
+          "avatar": user.avatar,
           "dateOfBirth": user.dateOfBirth,
           "height": user.height,
           "heightUnit": user.heightUnit,
@@ -273,145 +191,98 @@ class DBUserHelper {
         },
         showLoading: false,
       );
+      return 1; // Success
     } catch (e) {
       print("Sync User failed: $e");
+      return 0; // Fail
     }
-
-    return result;
   }
 
-  // 删除单条 user
-  Future<int> deleteUser(int userId) async => (await database).delete(
-    UserDdl.tableNameOfUser,
-    where: "user_id = ?",
-    whereArgs: [userId],
-  );
+  // 批量插入用户 (Safe to remove as primary logic, but keeping empty signature to avoid errors)
+  Future<List<Object?>> insertUserList(List<User> userList) async {
+    return [];
+  }
+
+  ///***********************************************/
 
   Future<List<Object?>> insertIntakeDailyGoalList(
     List<IntakeDailyGoal> goals,
   ) async {
-    var batch = (await database).batch();
-
-    for (var item in goals) {
-      batch.insert(
-        UserDdl.tableNameOfIntakeDailyGoal,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+    // 同步到后端 (Sync to backend)
+    try {
+      if (goals.isNotEmpty) {
+        await HttpUtils.put(
+          path: "${ApiEndpoints.intakeGoals}/${goals[0].userId}",
+          data: goals.map((e) => e.toJson()).toList(),
+          showLoading: false,
+        );
+      }
+    } catch (e) {
+      print("Sync intake goals failed: $e");
     }
-
-    return batch.commit();
+    return [];
   }
 
   // 查询用户带上每周具体摄入目标
-  // ？？？现在就是显示登录用户信息，用户密码登录成功之后记住信息？(缓存还不太懂，这里就账号密码id查询)
   // 这里查询的都是当前app的唯一用户，就一个用户
   Future<UserWithIntakeDailyGoal> queryUserWithIntakeDailyGoal({
-    int? userId,
-    String? userName,
-    String? password,
+    required int userId,
   }) async {
-    Database db = await database;
+    User? user;
+    List<IntakeDailyGoal> goals = [];
 
-    var where = [];
-    var whereArgs = [];
-
-    if (userId != null) {
-      where.add(" user_id = ? ");
-      whereArgs.add(userId);
-    }
-    if (userName != null) {
-      where.add(" user_name = ? ");
-      whereArgs.add(userName);
-    }
-    if (password != null) {
-      where.add(" password = ? ");
-      whereArgs.add(password);
+    // 1. 从云端获取用户信息 (Fetch User)
+    try {
+      var response = await HttpUtils.get(
+        path: "/users/$userId",
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        user = User.fromMap(response['data']);
+      }
+    } catch (e) {
+      print("Fetch user for goal display failed: $e");
     }
 
-    // 这里查询的都是唯一用户，就一个用户
-    final user = User.fromMap(
-      (await db.query(
-        UserDdl.tableNameOfUser,
-        where: where.isNotEmpty ? where.join(" AND ") : null,
-        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      )).first,
-    );
+    if (user == null) {
+      throw Exception("无法获取用户信息，请检查网络连接");
+    }
 
-    final intakeGoalRows = await db.query(
-      UserDdl.tableNameOfIntakeDailyGoal,
-      where: "user_id = ? ",
-      whereArgs: [user.userId],
-    );
-
-    List<IntakeDailyGoal> goals = intakeGoalRows
-        .map((row) => IntakeDailyGoal.fromMap(row))
-        .toList();
+    // 2. 从云端获取饮食目标 (Fetch Goals)
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.intakeGoals}/$userId",
+        showLoading: false,
+      );
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        goals = (response['data'] as List)
+            .map((row) => IntakeDailyGoal.fromMap(row))
+            .toList();
+      }
+    } catch (e) {
+      print("Fetch intake goals failed: $e");
+    }
 
     return UserWithIntakeDailyGoal(intakeGoals: goals, user: user);
   }
 
-  // 修改用户的周摄入宏量素目标
+  // 修改用户的周摄入宏量素目标 (Cloud Only)
   Future<int> updateIntakeDailyGoalByUser(List<IntakeDailyGoal> goals) async {
-    Database db = await database;
-
     try {
-      int rst = 0;
-
-      await db.transaction((txn) async {
-        for (var goal in goals) {
-          List<Map<String, dynamic>> result = await txn.query(
-            UserDdl.tableNameOfIntakeDailyGoal,
-            where: 'user_id = ? and day_of_week = ?',
-            whereArgs: [goal.userId, goal.dayOfWeek],
-          );
-          // 如果已存在，指定用户指定周几的目标值只有1条数据才对
-          if (result.isNotEmpty) {
-            var existed = IntakeDailyGoal.fromMap(result[0]);
-            goal.intakeDailyGoalId = existed.intakeDailyGoalId;
-
-            rst = await txn.update(
-              UserDdl.tableNameOfIntakeDailyGoal,
-              goal.toMap(),
-              where: 'user_id = ? and day_of_week = ?',
-              whereArgs: [goal.userId, goal.dayOfWeek],
-            );
-          } else {
-            // 如果该用户指定weekeday没有数据，则新增
-            rst = await txn.insert(
-              UserDdl.tableNameOfIntakeDailyGoal,
-              goal.toMap(),
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
-          }
-        }
-      });
-
-      // 同步到后端
       if (goals.isNotEmpty) {
-        HttpUtils.put(
-          path: "/users/${goals[0].userId}/intake-goals",
-          data: goals
-              .map(
-                (e) => {
-                  "dayOfWeek": e.dayOfWeek,
-                  "rdaDailyGoal": e.rdaDailyGoal,
-                  "proteinDailyGoal": e.proteinDailyGoal,
-                  "fatDailyGoal": e.fatDailyGoal,
-                  "choDailyGoal": e.choDailyGoal,
-                },
-              )
-              .toList(),
+        await HttpUtils.put(
+          path: "${ApiEndpoints.intakeGoals}/${goals[0].userId}",
+          data: goals.map((e) => e.toJson()).toList(),
           showLoading: false,
         );
+        return 1;
       }
-
-      return rst;
     } catch (e) {
-      // Handle the error
-      // 抛出异常来触发回滚的方式是 sqflite 中常用的做法
-      rethrow;
+      print("Sync intake goals failed: $e");
     }
+    return 0;
   }
 
   ///***********************************************/
@@ -422,87 +293,67 @@ class DBUserHelper {
   Future<List<Object?>> insertWeightTrendList(
     List<WeightTrend> weightTrendList,
   ) async {
-    var batch = (await database).batch();
-
-    for (var item in weightTrendList) {
-      batch.insert(
-        UserDdl.tableNameWeightTrend,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+    // 同步到后端 (Sync to backend)
+    try {
+      for (var item in weightTrendList) {
+        await HttpUtils.post(
+          path: ApiEndpoints.weightTrends,
+          data: item.toJson(),
+          showLoading: false,
+        );
+      }
+    } catch (e) {
+      print("Sync weight trends failed: $e");
     }
-
-    // 同步到后端
-    for (var item in weightTrendList) {
-      HttpUtils.post(
-        path: "/users/${item.userId}/weight-trends",
-        data: {
-          "weight": item.weight,
-          "weightUnit": item.weightUnit,
-          "height": item.height,
-          "heightUnit": item.heightUnit,
-          "bmi": item.bmi,
-          "gmtCreate": item.gmtCreate,
-        },
-        showLoading: false,
-      );
-    }
-
-    return batch.commit();
+    return [];
   }
 
-  // 批量删除体重趋势数据(有单条的，也放到list)
+  // 批量删除体重趋势数据 (Cloud Only)
   Future<List<Object?>> deleteWeightTrendList(
     List<WeightTrend> weightTrendList,
   ) async {
-    var batch = (await database).batch();
-
-    for (var item in weightTrendList) {
-      batch.delete(
-        UserDdl.tableNameWeightTrend,
-        where: "weight_trend_id = ? ",
-        whereArgs: [item.weightTrendId],
-      );
+    try {
+      for (var item in weightTrendList) {
+        await HttpUtils.delete(
+          path: "${ApiEndpoints.weightTrends}/${item.weightTrendId}",
+          showLoading: false,
+        );
+      }
+    } catch (e) {
+      print("Delete weight trends failed: $e");
     }
-
-    return batch.commit();
+    return [];
   }
 
-  // 查询用户体重数据，查不到是空数组
+  // 查询用户体重数据 (Cloud Only)
   Future<List<WeightTrend>> queryWeightTrendByUser({
     int? userId,
     String? startDate,
     String? endDate,
-    String? gmtCreateSort = "ASC", // 按创建时间升序或者降序排序
+    String? gmtCreateSort = "ASC",
   }) async {
-    Database db = await database;
+    if (userId == null) return [];
 
-    var where = [];
-    var whereArgs = [];
-
-    if (userId != null) {
-      where.add(" user_id = ? ");
-      whereArgs.add(userId);
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.weightTrends}/$userId",
+        queryParameters: {
+          if (startDate != null) "startDate": startDate,
+          if (endDate != null) "endDate": endDate,
+          "sort": gmtCreateSort,
+        },
+        showLoading: false,
+      );
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        return (response['data'] as List)
+            .map((row) => WeightTrend.fromMap(row))
+            .toList();
+      }
+    } catch (e) {
+      print("Query weight trends failed: $e");
     }
-    if (startDate != null) {
-      where.add(" gmt_create >= ? ");
-      whereArgs.add(startDate);
-    }
-    if (endDate != null) {
-      where.add(" gmt_create <= ? ");
-      whereArgs.add(endDate);
-    }
-
-    // 如果有传入创建时间排序，不是传的降序一律升序
-    var sort = gmtCreateSort?.toLowerCase() == 'desc' ? 'DESC' : 'ASC';
-
-    final userRows = await db.query(
-      UserDdl.tableNameWeightTrend,
-      where: where.isNotEmpty ? where.join(" AND ") : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      orderBy: 'gmt_create $sort',
-    );
-
-    return userRows.map((row) => WeightTrend.fromMap(row)).toList();
+    return [];
   }
 }

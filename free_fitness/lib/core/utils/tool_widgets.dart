@@ -203,6 +203,9 @@ InputDecoration _buildInputDecoration(
 }
 
 void commonExceptionDialog(BuildContext context, String title, String message) {
+  // 提前获取语言包，避免在 showDialog 的 builder 中使用错误的 context 导致空指针
+  var al = CusAL.of(context);
+
   showDialog(
     context: context,
     builder: (context) {
@@ -214,7 +217,7 @@ void commonExceptionDialog(BuildContext context, String title, String message) {
             onPressed: () {
               Navigator.pop(context);
             },
-            child: Text(CusAL.of(context).confirmLabel),
+            child: Text(al.confirmLabel),
           ),
         ],
       );

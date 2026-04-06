@@ -115,6 +115,12 @@ dependencies:
   pedometer: ^4.0.1
   # 日志
   proste_logger: ^1.0.0
+  flutter_map: ^8.2.2
+  latlong2: ^0.9.1
+
+dependency_overrides:
+  latlong2:
+    path: ./packages/latlong2
 
 dev_dependencies:
   flutter_test:

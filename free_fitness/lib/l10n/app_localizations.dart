@@ -101,7 +101,7 @@ abstract class AppLocalizations {
   /// No description provided for @appTitle.
   ///
   /// In en, this message translates to:
-  /// **'Free Fitness'**
+  /// **'Free Health'**
   String get appTitle;
 
   /// No description provided for @todaySteps.
@@ -331,6 +331,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Import Exercise Json'**
   String get exerciseImport;
+
+  /// No description provided for @deduplicateExercises.
+  ///
+  /// In en, this message translates to:
+  /// **'Clean up duplicate exercises'**
+  String get deduplicateExercises;
+
+  /// No description provided for @deduplicateFinished.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} duplicate records merged.'**
+  String deduplicateFinished(int count);
 
   /// No description provided for @exerciseLabelNote.
   ///
@@ -701,7 +713,7 @@ abstract class AppLocalizations {
   /// 几个常见的时间范围
   ///
   /// In en, this message translates to:
-  /// **'{num, select, 0{Yesterday} 1{Today} 2{Tomorrow} 3{LastWeek} 4{ThisWeek} other{Other} }'**
+  /// **'{num, select, 0{Yesterday} 1{Today} 2{Tomorrow} 3{LastWeek} 4{ThisWeek} 5{ThisMonth} 6{LastMonth} other{Other} }'**
   String rangeLabels(String num);
 
   /// 饮食日记条目的头部说明
@@ -1363,6 +1375,108 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Load embedded food? This will overwrite duplicates.'**
   String get confirmLoadEmbeddedFood;
+
+  /// No description provided for @dietaryAdviceTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Dietary Analysis (Last 7 Days)'**
+  String get dietaryAdviceTitle;
+
+  /// No description provided for @proteinDeficitAdvice.
+  ///
+  /// In en, this message translates to:
+  /// **'[Low Protein] Consider adding: chicken breast, lean beef, eggs, soy products, or dairy to support muscle health.'**
+  String get proteinDeficitAdvice;
+
+  /// No description provided for @fiberDeficitAdvice.
+  ///
+  /// In en, this message translates to:
+  /// **'[Low Fiber] Consider adding: fresh vegetables (broccoli, spinach), fruits, oats, and whole grains for digestive health.'**
+  String get fiberDeficitAdvice;
+
+  /// No description provided for @dietaryGoodAdvice.
+  ///
+  /// In en, this message translates to:
+  /// **'[Balanced Intake] Your nutrient levels look great! Keep up the good eating habits.'**
+  String get dietaryGoodAdvice;
+
+  /// No description provided for @healthAssessmentDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Today\'s Health Assessment'**
+  String get healthAssessmentDetail;
+
+  /// No description provided for @stepsStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Steps Goal'**
+  String get stepsStatus;
+
+  /// No description provided for @trainingStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Training Plan'**
+  String get trainingStatus;
+
+  /// No description provided for @sleepStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Sleep Check'**
+  String get sleepStatus;
+
+  /// No description provided for @dietAdviceStatus.
+  ///
+  /// In en, this message translates to:
+  /// **'Dietary Advice'**
+  String get dietAdviceStatus;
+
+  /// No description provided for @targetReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Reached'**
+  String get targetReached;
+
+  /// No description provided for @targetNotReached.
+  ///
+  /// In en, this message translates to:
+  /// **'Not Reached'**
+  String get targetNotReached;
+
+  /// No description provided for @trainingCompleted.
+  ///
+  /// In en, this message translates to:
+  /// **'Completed'**
+  String get trainingCompleted;
+
+  /// No description provided for @trainingPending.
+  ///
+  /// In en, this message translates to:
+  /// **'Pending'**
+  String get trainingPending;
+
+  /// No description provided for @noTrainingScheduled.
+  ///
+  /// In en, this message translates to:
+  /// **'No Plan Today'**
+  String get noTrainingScheduled;
+
+  /// No description provided for @sleepSufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Sufficient'**
+  String get sleepSufficient;
+
+  /// No description provided for @sleepInsufficient.
+  ///
+  /// In en, this message translates to:
+  /// **'Insufficient'**
+  String get sleepInsufficient;
+
+  /// No description provided for @viewDietAdvice.
+  ///
+  /// In en, this message translates to:
+  /// **'View Advice'**
+  String get viewDietAdvice;
 }
 
 class _AppLocalizationsDelegate

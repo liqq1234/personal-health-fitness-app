@@ -1,306 +1,376 @@
--- =====================================================
--- Free Fitness Backend - MySQL Schema
--- 与前端 ddl_*.dart 完全对齐
--- =====================================================
+-- =============================================================================
+-- Personal Health & Fitness App - Database Schema (MySQL)
+-- Last Updated: 2026-04-03
+-- =============================================================================
 
-CREATE DATABASE IF NOT EXISTS free_fitness DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE free_fitness;
+SET NAMES utf8mb4;
+SET FOREIGN_KEY_CHECKS = 0;
 
--- =====================================================
--- 用户模块（对应 ddl_user.dart）
--- =====================================================
+-- ----------------------------
+-- 1. User Module
+-- ----------------------------
 
-CREATE TABLE IF NOT EXISTS ff_user (
-    user_id          BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_name        VARCHAR(64)  NOT NULL,
-    user_code        VARCHAR(64),
-    gender           VARCHAR(10),
-    avatar           VARCHAR(512),           -- 头像文件 URL
-    password         VARCHAR(255),           -- BCrypt 哈希
-    description      TEXT,
-    date_of_birth    VARCHAR(20),
-    height           DOUBLE,
-    height_unit      VARCHAR(10),
-    current_weight   DOUBLE,
-    target_weight    DOUBLE,
-    weight_unit      VARCHAR(10),
-    rda_goal         INT,
-    protein_goal     DOUBLE,
-    fat_goal         DOUBLE,
-    cho_goal         DOUBLE,
-    action_rest_time INT,
-    gmt_create       VARCHAR(30),
-    gmt_modified     VARCHAR(30),
-    UNIQUE KEY uk_user_name_code (user_name, user_code)
+-- 用户基础信息表
+DROP TABLE IF EXISTS `ff_user`;
+CREATE TABLE `ff_user` (
+  `user_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_name` varchar(64) NOT NULL,
+  `user_code` varchar(64) DEFAULT NULL,
+  `gender` varchar(10) DEFAULT NULL,
+  `avatar` varchar(512) DEFAULT NULL,
+  `password` varchar(255) DEFAULT NULL,
+  `description` text,
+  `date_of_birth` varchar(20) DEFAULT NULL,
+  `height` double DEFAULT NULL,
+  `height_unit` varchar(10) DEFAULT NULL,
+  `current_weight` double DEFAULT NULL,
+  `target_weight` double DEFAULT NULL,
+  `weight_unit` varchar(10) DEFAULT NULL,
+  `rda_goal` int DEFAULT NULL,
+  `protein_goal` double DEFAULT NULL,
+  `fat_goal` double DEFAULT NULL,
+  `cho_goal` double DEFAULT NULL,
+  `action_rest_time` int DEFAULT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_weight_trend (
-    weight_trend_id  BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id          BIGINT       NOT NULL,
-    weight           VARCHAR(512) NOT NULL,  -- AES-256 加密存储
-    weight_unit      VARCHAR(10)  NOT NULL,
-    height           DOUBLE       NOT NULL,
-    height_unit      VARCHAR(10)  NOT NULL,
-    bmi              VARCHAR(512) NOT NULL,  -- AES-256 加密存储
-    gmt_create       VARCHAR(30)  NOT NULL,
-    KEY idx_wt_user (user_id)
+-- 体重趋势记录表 (含 AES-256 加密字段)
+DROP TABLE IF EXISTS `ff_weight_trend`;
+CREATE TABLE `ff_weight_trend` (
+  `weight_trend_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `weight` varchar(512) NOT NULL COMMENT 'Encrypted',
+  `weight_unit` varchar(10) NOT NULL,
+  `height` double NOT NULL,
+  `height_unit` varchar(10) NOT NULL,
+  `bmi` varchar(512) NOT NULL COMMENT 'Encrypted',
+  `gmt_create` varchar(30) NOT NULL,
+  PRIMARY KEY (`weight_trend_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_intake_daily_goal (
-    intake_daily_goal_id BIGINT  NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id              BIGINT  NOT NULL,
-    day_of_week          VARCHAR(10) NOT NULL,   -- MON/TUE/WED/THU/FRI/SAT/SUN
-    rda_daily_goal       INT     NOT NULL,
-    protein_daily_goal   DOUBLE  NOT NULL,
-    fat_daily_goal       DOUBLE  NOT NULL,
-    cho_daily_goal       DOUBLE  NOT NULL,
-    KEY idx_idg_user (user_id)
+-- 每日营养摄入目标表
+DROP TABLE IF EXISTS `ff_intake_daily_goal`;
+CREATE TABLE `ff_intake_daily_goal` (
+  `intake_daily_goal_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `day_of_week` varchar(10) NOT NULL COMMENT 'MON/TUE/WED/THU/FRI/SAT/SUN',
+  `rda_daily_goal` int NOT NULL,
+  `protein_daily_goal` double NOT NULL,
+  `fat_daily_goal` double NOT NULL,
+  `cho_daily_goal` double NOT NULL,
+  PRIMARY KEY (`intake_daily_goal_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =====================================================
--- 健康仪表板模块（对应 ddl_health_core.dart）
--- =====================================================
 
-CREATE TABLE IF NOT EXISTS ff_daily_steps (
-    steps_id    BIGINT  NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id     BIGINT  NOT NULL,
-    `date`       VARCHAR(12) NOT NULL,
-    steps       INT     NOT NULL DEFAULT 0,
-    calories    DOUBLE  NOT NULL DEFAULT 0,
-    gmt_create  VARCHAR(30) NOT NULL,
-    UNIQUE KEY uk_steps_user_date (user_id, `date`)
+-- ----------------------------
+-- 2. Training Module
+-- ----------------------------
+
+-- 基础动作库
+DROP TABLE IF EXISTS `ff_exercise`;
+CREATE TABLE `ff_exercise` (
+  `exercise_id` bigint NOT NULL AUTO_INCREMENT,
+  `exercise_code` varchar(64) NOT NULL,
+  `exercise_name` varchar(128) NOT NULL,
+  `force` varchar(32) DEFAULT NULL,
+  `level` varchar(32) DEFAULT NULL,
+  `mechanic` varchar(32) DEFAULT NULL,
+  `equipment` varchar(64) DEFAULT NULL,
+  `counting_mode` varchar(16) NOT NULL,
+  `standard_duration` int NOT NULL DEFAULT '1',
+  `instructions` text,
+  `tts_notes` text,
+  `category` varchar(64) NOT NULL,
+  `primary_muscles` text,
+  `secondary_muscles` text,
+  `images` text,
+  `is_custom` tinyint DEFAULT '0',
+  `contributor` varchar(64) DEFAULT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`exercise_id`),
+  UNIQUE KEY `uk_exercise_code` (`exercise_code`),
+  UNIQUE KEY `uk_exercise_name` (`exercise_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_sleep_records (
-    sleep_id        BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id         BIGINT NOT NULL,
-    start_time      VARCHAR(30) NOT NULL,
-    end_time        VARCHAR(30) NOT NULL,
-    duration_hours  DOUBLE      NOT NULL,
-    note            TEXT,
-    gmt_create      VARCHAR(30) NOT NULL,
-    KEY idx_sleep_user (user_id)
+-- 动作组表
+DROP TABLE IF EXISTS `ff_group`;
+CREATE TABLE `ff_group` (
+  `group_id` bigint NOT NULL AUTO_INCREMENT,
+  `group_name` varchar(128) NOT NULL,
+  `group_category` varchar(64) NOT NULL,
+  `group_level` varchar(32) NOT NULL,
+  `consumption` int DEFAULT NULL,
+  `time_spent` int DEFAULT NULL,
+  `description` text,
+  `contributor` varchar(64) DEFAULT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`group_id`),
+  UNIQUE KEY `uk_group_name` (`group_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_diet_logs (
-    diet_id    BIGINT      NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id    BIGINT      NOT NULL,
-    `date`      VARCHAR(12) NOT NULL,
-    category   VARCHAR(30) NOT NULL,
-    food_name  VARCHAR(128) NOT NULL,
-    calories   DOUBLE      NOT NULL,
-    protein    DOUBLE      NOT NULL,
-    gmt_create VARCHAR(30) NOT NULL,
-    KEY idx_dl_user_date (user_id, `date`)
+-- 动作组内的具体动作配置
+DROP TABLE IF EXISTS `ff_action`;
+CREATE TABLE `ff_action` (
+  `action_id` bigint NOT NULL AUTO_INCREMENT,
+  `group_id` bigint NOT NULL,
+  `exercise_id` bigint NOT NULL,
+  `frequency` int DEFAULT NULL,
+  `duration` int DEFAULT NULL,
+  `equipment_weight` double DEFAULT NULL,
+  PRIMARY KEY (`action_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_exercise_sessions (
-    session_id   BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id      BIGINT NOT NULL,
-    start_time   VARCHAR(30) NOT NULL,
-    end_time     VARCHAR(30),
-    distance     DOUBLE DEFAULT 0,
-    steps        INT    DEFAULT 0,
-    path_points  MEDIUMTEXT,               -- JSON 数组，存 GPS 轨迹点
-    gmt_create   VARCHAR(30) NOT NULL,
-    KEY idx_es_user (user_id)
+-- 训练计划表
+DROP TABLE IF EXISTS `ff_plan`;
+CREATE TABLE `ff_plan` (
+  `plan_id` bigint NOT NULL AUTO_INCREMENT,
+  `plan_code` varchar(64) NOT NULL,
+  `plan_name` varchar(128) NOT NULL,
+  `plan_category` varchar(64) NOT NULL,
+  `plan_level` varchar(32) NOT NULL,
+  `plan_period` int NOT NULL,
+  `description` text,
+  `contributor` varchar(64) DEFAULT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`plan_id`),
+  UNIQUE KEY `uk_plan_code` (`plan_code`),
+  UNIQUE KEY `uk_plan_name` (`plan_name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =====================================================
--- 训练模块（对应 ddl_training.dart）
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS ff_exercise (
-    exercise_id       BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    exercise_code     VARCHAR(64)  NOT NULL UNIQUE,
-    exercise_name     VARCHAR(128) NOT NULL UNIQUE,
-    `force`           VARCHAR(32),
-    `level`           VARCHAR(32),
-    mechanic          VARCHAR(32),
-    equipment         VARCHAR(64),
-    counting_mode     VARCHAR(16)  NOT NULL,
-    standard_duration INT          NOT NULL DEFAULT 1,
-    instructions      TEXT,
-    tts_notes         TEXT,
-    category          VARCHAR(64)  NOT NULL,
-    primary_muscles   TEXT,
-    secondary_muscles TEXT,
-    images            TEXT,
-    is_custom         TINYINT DEFAULT 0,
-    contributor       VARCHAR(64),
-    gmt_create        VARCHAR(30),
-    gmt_modified      VARCHAR(30)
+-- 训练计划与动作组关联表
+DROP TABLE IF EXISTS `ff_plan_has_group`;
+CREATE TABLE `ff_plan_has_group` (
+  `plan_has_group_id` bigint NOT NULL AUTO_INCREMENT,
+  `plan_id` bigint NOT NULL,
+  `group_id` bigint NOT NULL,
+  `day_number` int NOT NULL,
+  PRIMARY KEY (`plan_has_group_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_action (
-    action_id        BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    group_id         BIGINT NOT NULL,
-    exercise_id      BIGINT NOT NULL,
-    frequency        INT,
-    duration         INT,
-    equipment_weight DOUBLE,
-    KEY idx_action_group (group_id)
+-- 训练完成日志表
+DROP TABLE IF EXISTS `ff_trained_detail_log`;
+CREATE TABLE `ff_trained_detail_log` (
+  `trained_detail_log_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `trained_date` varchar(12) DEFAULT NULL,
+  `plan_name` varchar(128) DEFAULT NULL,
+  `plan_category` varchar(64) DEFAULT NULL,
+  `plan_level` varchar(32) DEFAULT NULL,
+  `day_number` int DEFAULT NULL,
+  `group_name` varchar(128) DEFAULT NULL,
+  `group_category` varchar(64) DEFAULT NULL,
+  `group_level` varchar(32) DEFAULT NULL,
+  `consumption` int DEFAULT NULL,
+  `trained_start_time` varchar(30) NOT NULL,
+  `trained_end_time` varchar(30) NOT NULL,
+  `trained_duration` int NOT NULL,
+  `totol_paused_time` int NOT NULL,
+  `total_rest_time` int NOT NULL,
+  PRIMARY KEY (`trained_detail_log_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_group (
-    group_id       BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    group_name     VARCHAR(128) NOT NULL UNIQUE,
-    group_category VARCHAR(64)  NOT NULL,
-    `group_level`    VARCHAR(32)  NOT NULL,
-    consumption    INT,
-    time_spent     INT,
-    description    TEXT,
-    contributor    VARCHAR(64),
-    gmt_create     VARCHAR(30),
-    gmt_modified   VARCHAR(30)
+-- 预训练计划排程表
+DROP TABLE IF EXISTS `ff_training_schedule`;
+CREATE TABLE `ff_training_schedule` (
+  `schedule_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `training_type` varchar(20) NOT NULL COMMENT 'PLAN / GROUP / ACTIVITY',
+  `training_name` varchar(100) DEFAULT NULL,
+  `target_id` bigint DEFAULT NULL,
+  `scheduled_date` varchar(12) NOT NULL,
+  `start_time` varchar(10) NOT NULL,
+  `end_time` varchar(10) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `remind_before_minutes` int DEFAULT '15',
+  `remind_sent` int DEFAULT '0',
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`schedule_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_plan (
-    plan_id       BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    plan_code     VARCHAR(64)  NOT NULL UNIQUE,
-    plan_name     VARCHAR(128) NOT NULL UNIQUE,
-    plan_category VARCHAR(64)  NOT NULL,
-    `plan_level`    VARCHAR(32)  NOT NULL,
-    plan_period   INT          NOT NULL,
-    description   TEXT,
-    contributor   VARCHAR(64),
-    gmt_create    VARCHAR(30),
-    gmt_modified  VARCHAR(30)
+
+-- ----------------------------
+-- 3. Dietary Module
+-- ----------------------------
+
+-- 食物库
+DROP TABLE IF EXISTS `ff_food`;
+CREATE TABLE `ff_food` (
+  `food_id` bigint NOT NULL AUTO_INCREMENT,
+  `brand` varchar(128) NOT NULL,
+  `product` varchar(128) NOT NULL,
+  `description` text,
+  `photos` text,
+  `tags` text,
+  `category` varchar(64) DEFAULT NULL,
+  `contributor` varchar(64) DEFAULT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `is_deleted` tinyint DEFAULT '0',
+  PRIMARY KEY (`food_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_plan_has_group (
-    plan_has_group_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    plan_id           BIGINT NOT NULL,
-    group_id          BIGINT NOT NULL,
-    day_number        INT    NOT NULL,
-    KEY idx_phg_plan (plan_id)
+-- 食物营养素规格表
+DROP TABLE IF EXISTS `ff_serving_info`;
+CREATE TABLE `ff_serving_info` (
+  `serving_info_id` bigint NOT NULL AUTO_INCREMENT,
+  `food_id` bigint NOT NULL,
+  `serving_size` int NOT NULL,
+  `serving_unit` varchar(20) NOT NULL,
+  `energy` double NOT NULL,
+  `energy_kcal` double DEFAULT NULL,
+  `protein` double NOT NULL,
+  `total_fat` double NOT NULL,
+  `saturated_fat` double DEFAULT NULL,
+  `trans_fat` double DEFAULT NULL,
+  `polyunsaturated_fat` double DEFAULT NULL,
+  `monounsaturated_fat` double DEFAULT NULL,
+  `cholesterol` double DEFAULT NULL,
+  `total_carbohydrate` double NOT NULL,
+  `sugar` double DEFAULT NULL,
+  `dietary_fiber` double DEFAULT NULL,
+  `sodium` double NOT NULL,
+  `potassium` double DEFAULT NULL,
+  `contributor` varchar(64) DEFAULT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `update_user` varchar(64) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  `is_deleted` tinyint DEFAULT '0',
+  PRIMARY KEY (`serving_info_id`),
+  UNIQUE KEY `uk_food_serving` (`food_id`,`serving_size`,`serving_unit`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_trained_detail_log (
-    trained_detail_log_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id               BIGINT NOT NULL,
-    trained_date          VARCHAR(12),
-    plan_name             VARCHAR(128),
-    plan_category         VARCHAR(64),
-    plan_level            VARCHAR(32),
-    day_number            INT,
-    group_name            VARCHAR(128),
-    group_category        VARCHAR(64),
-    group_level           VARCHAR(32),
-    consumption           INT,
-    trained_start_time    VARCHAR(30) NOT NULL,
-    trained_end_time      VARCHAR(30) NOT NULL,
-    trained_duration      INT         NOT NULL,
-    totol_paused_time     INT         NOT NULL,
-    total_rest_time       INT         NOT NULL,
-    KEY idx_tdl_user_date (user_id, trained_date)
+-- 每日饮食条目表
+DROP TABLE IF EXISTS `ff_daily_food_item`;
+CREATE TABLE `ff_daily_food_item` (
+  `daily_food_item_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `date` varchar(12) NOT NULL,
+  `meal_category` varchar(20) NOT NULL,
+  `food_id` bigint NOT NULL,
+  `food_intake_size` double NOT NULL,
+  `serving_info_id` bigint NOT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`daily_food_item_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =====================================================
--- 饮食模块（对应 ddl_dietary.dart）
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS ff_food (
-    food_id     BIGINT       NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    brand       VARCHAR(128) NOT NULL,
-    product     VARCHAR(128) NOT NULL,
-    description TEXT,
-    photos      TEXT,
-    tags        TEXT,
-    category    VARCHAR(64),
-    contributor VARCHAR(64),
-    gmt_create  VARCHAR(30),
-    is_deleted  TINYINT DEFAULT 0,
-    UNIQUE KEY uk_food_brand_product (brand, product)
+-- 餐次照片表
+DROP TABLE IF EXISTS `ff_meal_photo`;
+CREATE TABLE `ff_meal_photo` (
+  `meal_photo_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `date` varchar(12) NOT NULL,
+  `meal_category` varchar(20) NOT NULL,
+  `photos` text NOT NULL COMMENT 'JSON Array',
+  `gmt_create` varchar(30) NOT NULL,
+  PRIMARY KEY (`meal_photo_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_serving_info (
-    serving_info_id       BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    food_id               BIGINT NOT NULL,
-    serving_size          INT    NOT NULL,
-    serving_unit          VARCHAR(20) NOT NULL,
-    energy                DOUBLE NOT NULL,
-    energy_kcal           DOUBLE,
-    protein               DOUBLE NOT NULL,
-    total_fat             DOUBLE NOT NULL,
-    saturated_fat         DOUBLE,
-    trans_fat             DOUBLE,
-    polyunsaturated_fat   DOUBLE,
-    monounsaturated_fat   DOUBLE,
-    cholesterol           DOUBLE,
-    total_carbohydrate    DOUBLE NOT NULL,
-    sugar                 DOUBLE,
-    dietary_fiber         DOUBLE,
-    sodium                DOUBLE NOT NULL,
-    potassium             DOUBLE,
-    contributor           VARCHAR(64),
-    gmt_create            VARCHAR(30),
-    update_user           VARCHAR(64),
-    gmt_modified          VARCHAR(30),
-    is_deleted            TINYINT DEFAULT 0,
-    UNIQUE KEY uk_si_food_size_unit (food_id, serving_size, serving_unit)
+
+-- ----------------------------
+-- 4. Health & Diary & System
+-- ----------------------------
+
+-- 运动会话轨迹表
+DROP TABLE IF EXISTS `ff_exercise_sessions`;
+CREATE TABLE `ff_exercise_sessions` (
+  `session_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `start_time` varchar(30) NOT NULL,
+  `end_time` varchar(30) DEFAULT NULL,
+  `distance` double DEFAULT NULL,
+  `steps` int DEFAULT NULL,
+  `calories` double DEFAULT NULL,
+  `duration_seconds` bigint DEFAULT NULL,
+  `path_points` mediumtext COMMENT 'GPS Track JSON',
+  `gmt_create` varchar(30) NOT NULL,
+  PRIMARY KEY (`session_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_daily_food_item (
-    daily_food_item_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id            BIGINT NOT NULL,
-    `date`               VARCHAR(12) NOT NULL,
-    meal_category      VARCHAR(20) NOT NULL,
-    food_id            BIGINT NOT NULL,
-    food_intake_size   DOUBLE NOT NULL,
-    serving_info_id    BIGINT NOT NULL,
-    gmt_create         VARCHAR(30),
-    gmt_modified       VARCHAR(30),
-    KEY idx_dfi_user_date (user_id, `date`)
+-- 睡眠记录表
+DROP TABLE IF EXISTS `ff_sleep_records`;
+CREATE TABLE `ff_sleep_records` (
+  `sleep_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `start_time` varchar(30) NOT NULL,
+  `end_time` varchar(30) NOT NULL,
+  `duration_hours` double NOT NULL,
+  `note` text,
+  `gmt_create` varchar(30) NOT NULL,
+  PRIMARY KEY (`sleep_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_meal_photo (
-    meal_photo_id  BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id        BIGINT NOT NULL,
-    `date`           VARCHAR(12) NOT NULL,
-    meal_category  VARCHAR(20) NOT NULL,
-    photos         TEXT        NOT NULL,
-    gmt_create     VARCHAR(30) NOT NULL,
-    KEY idx_mp_user_date (user_id, `date`)
+-- 轻量饮食记录简表
+DROP TABLE IF EXISTS `ff_diet_logs`;
+CREATE TABLE `ff_diet_logs` (
+  `diet_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `date` varchar(12) NOT NULL,
+  `category` varchar(30) NOT NULL,
+  `food_name` varchar(128) NOT NULL,
+  `calories` double NOT NULL,
+  `protein` double NOT NULL,
+  `gmt_create` varchar(30) NOT NULL,
+  PRIMARY KEY (`diet_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =====================================================
--- 日记模块（对应 ddl_diary.dart）
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS ff_diary (
-    diary_id     BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id      BIGINT NOT NULL,
-    `date`         VARCHAR(12) NOT NULL,
-    title        VARCHAR(255) NOT NULL,
-    content      MEDIUMTEXT   NOT NULL,   -- Quill Delta JSON
-    tags         TEXT,
-    category     VARCHAR(64),
-    mood         VARCHAR(32),
-    photos       TEXT,
-    gmt_create   VARCHAR(30),
-    gmt_modified VARCHAR(30),
-    KEY idx_diary_user_date (user_id, `date`)
+-- 每日步数统计表
+DROP TABLE IF EXISTS `ff_daily_steps`;
+CREATE TABLE `ff_daily_steps` (
+  `steps_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `date` varchar(12) NOT NULL,
+  `steps` int NOT NULL,
+  `calories` double NOT NULL,
+  `gmt_create` varchar(30) NOT NULL,
+  PRIMARY KEY (`steps_id`),
+  UNIQUE KEY `uk_user_date` (`user_id`,`date`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- =====================================================
--- 系统模块（备份 & 设置）
--- =====================================================
-
-CREATE TABLE IF NOT EXISTS ff_backup (
-    backup_id      VARCHAR(36) NOT NULL PRIMARY KEY,   -- UUID
-    user_id        BIGINT      NOT NULL,
-    backup_version VARCHAR(16),
-    size_kb        INT,
-    data           LONGTEXT    NOT NULL,               -- 全量 JSON 快照
-    saved_at       VARCHAR(30) NOT NULL,
-    KEY idx_backup_user (user_id)
+-- 个人日记表
+DROP TABLE IF EXISTS `ff_diary`;
+CREATE TABLE `ff_diary` (
+  `diary_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `date` varchar(12) NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `content` mediumtext NOT NULL COMMENT 'Quill Delta JSON',
+  `tags` text,
+  `category` varchar(64) DEFAULT NULL,
+  `mood` varchar(32) DEFAULT NULL,
+  `photos` text,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`diary_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
-CREATE TABLE IF NOT EXISTS ff_user_settings (
-    setting_id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-    user_id    BIGINT NOT NULL UNIQUE,
-    theme      VARCHAR(20) DEFAULT 'system',
-    language   VARCHAR(10) DEFAULT 'zh',
-    gmt_modified VARCHAR(30)
+-- 用户偏好设置表
+DROP TABLE IF EXISTS `ff_user_settings`;
+CREATE TABLE `ff_user_settings` (
+  `setting_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `theme` varchar(32) DEFAULT NULL,
+  `language` varchar(16) DEFAULT NULL,
+  `gmt_modified` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`setting_id`),
+  UNIQUE KEY `uk_user_id` (`user_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 全量数据备份记录表
+DROP TABLE IF EXISTS `ff_backup`;
+CREATE TABLE `ff_backup` (
+  `backup_id` varchar(36) NOT NULL,
+  `user_id` bigint NOT NULL,
+  `backup_version` varchar(16) DEFAULT NULL,
+  `size_kb` int DEFAULT NULL,
+  `data` longtext NOT NULL,
+  `saved_at` varchar(30) NOT NULL,
+  PRIMARY KEY (`backup_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+SET FOREIGN_KEY_CHECKS = 1;

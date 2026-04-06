@@ -5,6 +5,7 @@ import com.freefitness.diary.entity.Diary;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -13,11 +14,13 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.IOException;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 import java.util.Map;
 
 /**
  * 日记接口
  */
+@Slf4j
 @Tag(name = "日记", description = "日记 CRUD / 月度日历 / 多条件搜索 / 图片上传")
 @RestController
 @RequestMapping("/api/v1/diary")
@@ -27,6 +30,16 @@ public class DiaryController {
     private final DiaryService diaryService;
 
     // ──────── 5.2 日记 CRUD ────────
+    @Operation(summary = "按日期范围查询日记列表")
+    @GetMapping("/entries/range")
+    public Result<List<Diary>> listEntriesRange(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String startDate,
+            @RequestParam String endDate,
+            @RequestParam(required = false, defaultValue = "desc") String dateSort) {
+        log.info("Query diary entries range: userId={}, startDate={}, endDate={}, sort={}", userId, startDate, endDate, dateSort);
+        return Result.success(diaryService.listEntriesRange(userId, startDate, endDate, dateSort));
+    }
 
     @Operation(summary = "分页查询日记列表（按日期倒序）")
     @GetMapping("/entries")

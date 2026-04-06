@@ -9,6 +9,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../models/dietary_state.dart';
+import '../dio_client/cus_http_client.dart';
+import '../dio_client/api_endpoints.dart';
 import '../constants/constants.dart';
 import 'ddl_dietary.dart';
 
@@ -53,37 +55,14 @@ class DBDietaryHelper {
     return dietaryDb;
   }
 
-  // 创建训练数据库相关表
+  // 创建训练数据库相关表 (Decommissioned)
   void _createDb(Database db, int newVersion) async {
-    print("开始创建表 _createDb……");
-
-    await db.transaction((txn) async {
-      txn.execute(DietaryDdl.ddlForFood);
-      txn.execute(DietaryDdl.ddlForServingInfo);
-      txn.execute(DietaryDdl.ddlForDailyFoodItem);
-      txn.execute(DietaryDdl.ddlForMealPhoto);
-    });
+    print("开始创建表 _createDb (Dietary moved to cloud)……");
   }
 
-  // 数据库升级
+  // 数据库升级 (Decommissioned)
   void _upgradeDb(Database db, int oldVersion, int newVersion) async {
-    print("数据库升级 _upgradeDb 从 $oldVersion 到 $newVersion");
-
-    if (oldVersion < 2) {
-      // 版本1升级到版本2的变更
-      await db.transaction((txn) async {
-        try {
-          await txn.execute(
-            'ALTER TABLE ${DietaryDdl.tableNameOfServingInfo} ADD COLUMN energy_kcal REAL',
-          );
-          print("数据库升级成功完成");
-        } catch (e) {
-          print("升级表时出错: $e");
-
-          return;
-        }
-      });
-    }
+    print("数据库升级 _upgradeDb (Dietary moved to cloud)……");
   }
 
   // 关闭数据库
@@ -123,9 +102,7 @@ class DBDietaryHelper {
       'sqlite_master',
       where: 'type = ?',
       whereArgs: ['table'],
-    ))
-        .map((row) => row['name'] as String)
-        .toList(growable: false);
+    )).map((row) => row['name'] as String).toList(growable: false);
 
     print("DietaryDB中拥有的表名:------------");
     print(tableNames);
@@ -178,13 +155,20 @@ class DBDietaryHelper {
   /// food and serving_info 的相关操作
   ///
 
-  // 修改单条基础 food
-  Future<int> updateFood(Food food) async => (await database).update(
-        DietaryDdl.tableNameOfFood,
-        food.toMap(),
-        where: 'food_id = ?',
-        whereArgs: [food.foodId],
+  // 修改单条基础 food (Only to Cloud)
+  Future<int> updateFood(Food food) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.dietSync}/foods/${food.foodId}",
+        data: food.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Update food failed: $e");
+      return 0;
+    }
+  }
 
   ///
   // 插入单条食物(返回食物编号和营养素编号列表，0和空可能就没插入成功)
@@ -192,341 +176,110 @@ class DBDietaryHelper {
   // 如果食物不为空，servinginfo为空，说明是单独新增食物（正常业务应该不会，新增食物一定会带一份营养素）
   // 如果食物不为空，servinginfo不为空，说明是正常的新增食物带一份营养素(支持1个食物带多份营养素信息)
   // 如果都为空，则报错
-  Future<Map<String, Object>> insertFoodWithServingInfoList2({
-    Food? food,
-    List<ServingInfo>? servingInfoList,
-  }) async {
-    final db = await database;
 
-    late int foodId = 0;
-    late List<int> servingIds = [];
-
-    try {
-      await db.transaction((txn) async {
-        // 如果有传入食物
-        if (food != null) {
-          // 1 食物不为空
-          // 由于food_id列被设置为自增属性的主键，因此在调用insert方法时，返回值应该是新插入行的food_id值。
-          // 如果不是自增主键，则返回的是行号row 的id。
-          // ？？？如果食物自带有编号，这里后续取值就不是返回的行号了？？？
-
-          try {
-            foodId = await txn.insert(
-              DietaryDdl.tableNameOfFood,
-              food.toMap(),
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
-            // 2 食物不为空、营养素不为空
-            if (servingInfoList != null && servingInfoList.isNotEmpty) {
-              // 多个单个营养素的食物都是同一个
-              for (var e in servingInfoList) {
-                e.foodId = foodId;
-                var servingId = await txn.insert(
-                  DietaryDdl.tableNameOfServingInfo,
-                  e.toMap(),
-                  conflictAlgorithm: ConflictAlgorithm.replace,
-                );
-                servingIds.add(servingId);
-              }
-            }
-          } on DatabaseException catch (e) {
-            // 唯一值重复
-            if (e.isUniqueConstraintError()) {
-              // 抛出自定义异常并携带错误信息
-              throw Exception('该食物已存在:\n ${food.product} (${food.brand})');
-            } else if (e.isDuplicateColumnError()) {
-              // 抛出自定义异常并携带错误信息
-              throw Exception(
-                '该食物已存在 \n ${food.foodId}-${food.product} (${food.brand})',
-              );
-            } else {
-              // 其他错误(抛出异常来触发回滚的方式是 sqflite 中常用的做法)
-              rethrow;
-            }
-          }
-        } else if (servingInfoList != null && servingInfoList.isNotEmpty) {
-          // 3 食物为空，营养素不为空
-          // 多个单个营养素的批量插入，(营养素的foodId不传食物时一定要有)
-          for (var e in servingInfoList) {
-            try {
-              var sId = await txn.insert(
-                DietaryDdl.tableNameOfServingInfo,
-                e.toMap(),
-                conflictAlgorithm: ConflictAlgorithm.replace,
-              );
-              servingIds.add(sId);
-            } on DatabaseException catch (err) {
-              // 唯一值重复
-              if (err.isUniqueConstraintError()) {
-                // 抛出自定义异常并携带错误信息
-                throw Exception(
-                  '该食物已存在同样的单份营养素:\n ${e.servingSize} - ${e.servingUnit}',
-                );
-              } else if (err.isDuplicateColumnError()) {
-                // 抛出自定义异常并携带错误信息
-                throw Exception(
-                  '该食物已存在同样的单份营养素:\n ${e.servingInfoId}-${e.servingSize} - ${e.servingUnit}',
-                );
-              } else {
-                // 其他错误(抛出异常来触发回滚的方式是 sqflite 中常用的做法)
-                rethrow;
-              }
-            }
-          }
-          foodId = servingInfoList.first.foodId;
-        } else {
-          // 4 都为空
-          throw Exception("没有传入food id或serving info");
-        }
-      });
-    } catch (e) {
-      rethrow;
-    }
-    // 返回成功插入的食品编号和营养素编号列表
-    // ？？？这个map的key是魔法值
-    return {"foodId": foodId, "servingIds": servingIds};
-  }
-
-  bool _isSpecialBrandFormat(String brand) {
-    // 匹配6位数字 + 可选'x'的模式
-    final regex = RegExp(r'^\d{6}x?$');
-    return regex.hasMatch(brand);
-  }
-
+  // 插入食物带上营养素列表 (Cloud First)
   Future<Map<String, Object>> insertFoodWithServingInfoList({
     Food? food,
     List<ServingInfo>? servingInfoList,
   }) async {
-    final db = await database;
-
-    late int foodId = 0;
-    late List<int> servingIds = [];
-
     try {
-      await db.transaction((txn) async {
-        // 如果有传入食物
-        if (food != null) {
-          // 1 食物不为空(不管营养素是否为空，都要先插入食物)
-
-          // 2025-08-01 检查插入食物的“品牌brand”是否是《中国食物成分表第6版》的foodCode编码格式
-          // 如果是，则不管foodName是什么，直接新的替换旧的数据；如果不是，则继续按照原本brand+product唯一键的逻辑处理
-          final isSpecialBrand = _isSpecialBrandFormat(food.brand);
-
-          // 查询条件取决于brand格式
-          final existingFood = await txn.query(
-            DietaryDdl.tableNameOfFood,
-            where: isSpecialBrand ? 'brand = ?' : 'brand = ? AND product = ?',
-            whereArgs:
-                isSpecialBrand ? [food.brand] : [food.brand, food.product],
-            limit: 1,
-          );
-
-          if (existingFood.isNotEmpty) {
-            // 获取已存在记录的主键
-            foodId = existingFood.first['food_id'] as int;
-            food.foodId = foodId;
-
-            // 更新现有记录
-            await txn.update(
-              DietaryDdl.tableNameOfFood,
-              food.toMap(),
-              where: 'food_id = ?',
-              whereArgs: [foodId],
-            );
-
-            // 删除原有的营养成分记录（可选）
-            await txn.delete(
-              DietaryDdl.tableNameOfServingInfo,
-              where: 'food_id = ?',
-              whereArgs: [foodId],
-            );
-          } else {
-            // 不存在则正常插入
-            foodId = await txn.insert(DietaryDdl.tableNameOfFood, food.toMap());
-          }
-
-          // 2 食物不为空、营养素不为空
-          if (servingInfoList != null && servingInfoList.isNotEmpty) {
-            // 多个单个营养素的食物都是同一个
-            for (var e in servingInfoList) {
-              e.foodId = foodId;
-              var servingId = await txn.insert(
-                DietaryDdl.tableNameOfServingInfo,
-                e.toMap(),
-                conflictAlgorithm: ConflictAlgorithm.replace,
-              );
-              servingIds.add(servingId);
-            }
-          }
-        } else if (servingInfoList != null && servingInfoList.isNotEmpty) {
-          // 3 食物为空，营养素不为空
-          // 多个单个营养素的批量插入，(营养素的foodId不传食物时一定要有)
-          for (var e in servingInfoList) {
-            var sId = await txn.insert(
-              DietaryDdl.tableNameOfServingInfo,
-              e.toMap(),
-              conflictAlgorithm: ConflictAlgorithm.replace,
-            );
-            servingIds.add(sId);
-          }
-          foodId = servingInfoList.first.foodId;
-        } else {
-          // 4 都为空
-          throw Exception("没有传入food id或serving info");
-        }
-      });
+      var response = await HttpUtils.post(
+        path: "${ApiEndpoints.dietSync}/foods/with-servings",
+        data: {
+          "food": food?.toJson(),
+          "servings": servingInfoList?.map((e) => e.toJson()).toList(),
+        },
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        return {
+          "foodId": response['data']['foodId'] ?? 0,
+          "servingIds": response['data']['servingIds'] ?? [],
+        };
+      }
     } catch (e) {
-      rethrow;
+      print("Sync food with servings failed: $e");
     }
-    // 返回成功插入的食品编号和营养素编号列表
-    // ？？？这个map的key是魔法值
-    return {"foodId": foodId, "servingIds": servingIds};
+    return {"foodId": 0, "servingIds": []};
   }
 
-  // 数据库备份全量导入时每个文件夹单独导出，需要用到
+  // 批量插入 food (Safe to ignore for now or map to cloud)
   Future<List<Object?>> insertFoodList(List<Food> foods) async {
-    var batch = (await database).batch();
-    for (var item in foods) {
-      batch.insert(
-        DietaryDdl.tableNameOfFood,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+    for (var food in foods) {
+      await updateFood(food); // Bulk save logic
     }
-    return await batch.commit();
+    return [];
   }
 
   Future<void> updateFoodWithServingInfo(
     Food food,
     ServingInfo servingInfo,
   ) async {
-    final db = await database;
     try {
-      await db.transaction((txn) async {
-        // Update food info
-        await txn.update(
-          DietaryDdl.tableNameOfFood,
-          food.toMap(),
-          where: 'food_id = ?',
-          whereArgs: [food.foodId],
-        );
-
-        // Update serving info associated with the food
-        await txn.update(
-          DietaryDdl.tableNameOfServingInfo,
-          servingInfo.toMap(),
-          where: 'food_id = ?',
-          whereArgs: [food.foodId],
-        );
-      });
+      await HttpUtils.put(
+        path: "${ApiEndpoints.dietSync}/foods/with-servings/${food.foodId}",
+        data: {"food": food.toJson(), "serving": servingInfo.toJson()},
+        showLoading: false,
+      );
     } catch (e) {
       rethrow;
     }
   }
 
-  Future<int> updateSingleServingInfo(ServingInfo servingInfo) async =>
-      await (await database).update(
-        DietaryDdl.tableNameOfServingInfo,
-        servingInfo.toMap(),
-        where: 'serving_info_id = ?',
-        whereArgs: [servingInfo.servingInfoId],
-      );
-
-  // 删除单条数据
-  Future<dynamic> deleteFoodWithServingInfo(int foodId) async {
-    final db = await database;
-
+  Future<int> updateSingleServingInfo(ServingInfo servingInfo) async {
     try {
-      return await db.transaction((txn) async {
-        // 先确定该食物是否被使用
-        var itemRows = await txn.query(
-          DietaryDdl.tableNameOfDailyFoodItem,
-          where: 'food_id = ?',
-          whereArgs: [foodId],
-        );
+      await HttpUtils.put(
+        path: "${ApiEndpoints.dietSync}/servings/${servingInfo.servingInfoId}",
+        data: servingInfo.toJson(),
+        showLoading: false,
+      );
+      return 1;
+    } catch (e) {
+      print("Update serving failed: $e");
+      return 0;
+    }
+  }
 
-        // 如果没有被使用，则物理删除
-        if (itemRows.isEmpty) {
-          await txn.delete(
-            DietaryDdl.tableNameOfServingInfo,
-            where: 'food_id = ?',
-            whereArgs: [foodId],
-          );
-
-          await txn.delete(
-            DietaryDdl.tableNameOfFood,
-            where: 'food_id = ?',
-            whereArgs: [foodId],
-          );
-        } else {
-          // 如果有被使用，则逻辑删除(只有id，没法使用query)
-          await txn.rawUpdate(
-            '''
-              UPDATE ${DietaryDdl.tableNameOfServingInfo} 
-              SET is_deleted = ?  WHERE food_id = ?
-            ''',
-            [1, foodId],
-          );
-
-          await txn.rawUpdate(
-            '''
-              UPDATE ${DietaryDdl.tableNameOfFood} 
-              SET is_deleted = ? WHERE food_id = ?
-            ''',
-            [1, foodId],
-          );
-        }
-      });
+  // 删除单条数据 (Cloud)
+  Future<dynamic> deleteFoodWithServingInfo(int foodId) async {
+    try {
+      return await HttpUtils.delete(
+        path: "${ApiEndpoints.dietSync}/foods/$foodId",
+        showLoading: false,
+      );
     } catch (e) {
       throw Exception("删除食物及其所有单份营养素出错: $e");
     }
   }
 
-  // 数据库备份全量导入时每个文件夹单独导出，需要用到
+  // 数据库备份全量导入时每个文件夹单独导出，需要用到 (Cloud)
   Future<List<Object?>> insertServingInfoList(List<ServingInfo> siList) async {
-    var batch = (await database).batch();
-    for (var item in siList) {
-      batch.insert(
-        DietaryDdl.tableNameOfServingInfo,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.dietSync}/servings/batch",
+        data: siList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync servings failed: $e");
+      return [];
     }
-    return await batch.commit();
   }
 
-  // 删除营养素数据列表
+  // 删除营养素数据列表 (Cloud)
   Future<List<Object?>> deleteServingInfoList(List<int> ids) async {
-    final db = await database;
-    var batch = db.batch();
-
-    for (var id in ids) {
-      // 先确定该食物是否被使用
-      var itemRows = await db.query(
-        DietaryDdl.tableNameOfDailyFoodItem,
-        where: 'serving_info_id = ?',
-        whereArgs: [id],
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.dietSync}/servings/batch-delete",
+        data: ids,
+        showLoading: false,
       );
-
-      // 如果没有被使用，则物理删除;否则就逻辑删除
-      if (itemRows.isEmpty) {
-        batch.delete(
-          DietaryDdl.tableNameOfServingInfo,
-          where: "serving_info_id = ? ",
-          whereArgs: [id],
-        );
-      } else {
-        batch.rawUpdate(
-          '''
-          UPDATE ${DietaryDdl.tableNameOfServingInfo} 
-          SET is_deleted = ? WHERE serving_info_id = ?
-          ''',
-          [1, id],
-        );
-      }
+      return [];
+    } catch (e) {
+      print("Batch delete servings failed: $e");
+      return [];
     }
-
-    return await batch.commit();
   }
 
   // 关键字查询食物及其不同单份食物营养素
@@ -537,54 +290,39 @@ class DBDietaryHelper {
     // 2023-12-31 指定创建日期升序或者降序排序
     String? dateSort = "desc",
   }) async {
-    final db = await database;
-    final offset = (page - 1) * pageSize;
-
-    var sort = dateSort?.toLowerCase();
-    if (dateSort != null) {
-      // 如果有传入创建时间排序，不是传的降序一律升序
-      sort = dateSort.toLowerCase() == 'desc' ? 'DESC' : 'ASC';
-    }
-
-    final foodRows = await db.query(
-      DietaryDdl.tableNameOfFood,
-      where: '(brand LIKE ? OR product LIKE ?) AND is_deleted = ? ',
-      whereArgs: ['%$keyword%', '%$keyword%', 0],
-      limit: pageSize,
-      offset: offset,
-      orderBy: sort != null ? 'gmt_create $sort' : null,
-    );
-
-    final foods = <FoodAndServingInfo>[];
-
-    for (final row in foodRows) {
-      final food = Food.fromMap(row);
-      final servingInfoRows = await db.query(
-        DietaryDdl.tableNameOfServingInfo,
-        where: 'food_id = ? AND is_deleted = ? ',
-        whereArgs: [food.foodId, 0],
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.dietSync}/foods/search",
+        queryParameters: {
+          "keyword": keyword,
+          "page": page,
+          "pageSize": pageSize,
+          "dateSort": dateSort,
+        },
+        showLoading: false,
       );
-
-      final servingInfoList =
-          servingInfoRows.map((row) => ServingInfo.fromMap(row)).toList();
-
-      foods.add(
-        FoodAndServingInfo(food: food, servingInfoList: servingInfoList),
-      );
+      if (response != null && response['data'] != null) {
+        var resultData = response['data'];
+        List<dynamic> list = resultData['list'] ?? [];
+        int total = resultData['total'] ?? 0;
+        return CusDataResult(
+          data: list
+              .map(
+                (e) => FoodAndServingInfo(
+                  food: Food.fromMap(e['food']),
+                  servingInfoList: (e['servings'] as List)
+                      .map((s) => ServingInfo.fromMap(s))
+                      .toList(),
+                ),
+              )
+              .toList(),
+          total: total,
+        );
+      }
+    } catch (e) {
+      print("Search food failed: $e");
     }
-
-    // 数据是分页查询的，但这里带上满足条件的一共多少条
-    // 获取满足查询条件的数据总量
-    int? totalCount = Sqflite.firstIntValue(
-      await db.rawQuery(
-        'SELECT COUNT(*) FROM ${DietaryDdl.tableNameOfFood} '
-        'WHERE (brand LIKE ? OR product LIKE ?) AND is_deleted = ?',
-        ['%$keyword%', '%$keyword%', 0],
-      ),
-    );
-
-    // 查询每页指定数量的数据，但带上总条数
-    return CusDataResult(data: foods, total: totalCount ?? 0);
+    return CusDataResult(data: [], total: 0);
   }
 
   // 查询指定食物的单份营养素信息
@@ -593,36 +331,25 @@ class DBDietaryHelper {
     // 2023-12-14 默认查询的都是排除了逻辑删除后的数据，只有涉及到饮食摄入条目的才查询所有
     bool onlyNotDeleted = true,
   }) async {
-    final db = await database;
-
-    // 正常来讲，通过food id要么查到一条，要么查不到，所以只返回一个
-    final foodRows = await db.query(
-      DietaryDdl.tableNameOfFood,
-      where: onlyNotDeleted ? 'food_id = ? AND is_deleted = ?' : 'food_id = ?',
-      whereArgs: onlyNotDeleted ? [foodId, 0] : [foodId],
-    );
-
-    if (foodRows.isEmpty) {
-      return null;
-    } else {
-      final food = Food.fromMap(foodRows[0]);
-
-      final servingInfoRows = await db.query(
-        DietaryDdl.tableNameOfServingInfo,
-        where:
-            onlyNotDeleted ? 'food_id = ? AND is_deleted = ?' : 'food_id = ?',
-        whereArgs: onlyNotDeleted ? [food.foodId, 0] : [food.foodId],
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.dietSync}/foods/$foodId",
+        queryParameters: {"onlyNotDeleted": onlyNotDeleted},
+        showLoading: false,
       );
-
-      final servingInfoList =
-          servingInfoRows.map((row) => ServingInfo.fromMap(row)).toList();
-
-      final foodAndServingInfo = FoodAndServingInfo(
-        food: food,
-        servingInfoList: servingInfoList,
-      );
-      return foodAndServingInfo;
+      if (response != null && response['data'] != null) {
+        var data = response['data'];
+        return FoodAndServingInfo(
+          food: Food.fromMap(data['food']),
+          servingInfoList: (data['servings'] as List)
+              .map((e) => ServingInfo.fromMap(e))
+              .toList(),
+        );
+      }
+    } catch (e) {
+      print("Get food by id failed: $e");
     }
+    return null;
   }
 
   ///***********************************************/
@@ -633,39 +360,52 @@ class DBDietaryHelper {
   Future<List<Object?>> insertDailyFoodItemList(
     List<DailyFoodItem> dfiList,
   ) async {
-    var batch = (await database).batch();
-
-    for (var item in dfiList) {
-      batch.insert(
-        DietaryDdl.tableNameOfDailyFoodItem,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.dietSync}/logs/batch",
+        data: dfiList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync daily food items failed: $e");
+      return [];
     }
-
-    return await batch.commit();
   }
 
   // 修改单条 daily_food_item
-  Future<int> updateDailyFoodItem(DailyFoodItem dailyFoodItem) async =>
-      (await database).update(
-        DietaryDdl.tableNameOfDailyFoodItem,
-        dailyFoodItem.toMap(),
-        where: 'daily_food_item_id = ?',
-        whereArgs: [dailyFoodItem.dailyFoodItemId],
+  Future<int> updateDailyFoodItem(DailyFoodItem dailyFoodItem) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.dietSync}/logs/${dailyFoodItem.dailyFoodItemId}",
+        data: dailyFoodItem.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Update daily food item failed: $e");
+      return 0;
+    }
+  }
 
   // 删除单条 daily_food_item
-  Future<int> deleteDailyFoodItem(int dailyFoodItemId) async =>
-      (await database).delete(
-        DietaryDdl.tableNameOfDailyFoodItem,
-        where: "daily_food_item_id=?",
-        whereArgs: [dailyFoodItemId],
+  Future<int> deleteDailyFoodItem(int dailyFoodItemId) async {
+    try {
+      await HttpUtils.delete(
+        path: "${ApiEndpoints.dietSync}/logs/$dailyFoodItemId",
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Delete daily food item failed: $e");
+      return 0;
+    }
+  }
 
   // 条件查询日记条目，可以带food和serving info 详情
   // 返回值动态类型，有查详情则是 List<DailyFoodItemWithFoodServing>，
   // 不查详情则是 List<DailyFoodItem>
+  // 条件查询日记条目，可以带food和serving info 详情 (Cloud)
   Future<List<dynamic>> queryDailyFoodItemListWithDetail({
     int? userId,
     int? dailyFoodItemId,
@@ -674,129 +414,100 @@ class DBDietaryHelper {
     String? mealCategory,
     bool withDetail = false,
   }) async {
-    Database db = await database;
-
-    final where = <String>[];
-    final whereArgs = <dynamic>[];
-
-    if (userId != null) {
-      where.add('user_id = ?');
-      whereArgs.add(userId);
-    }
-
-    if (dailyFoodItemId != null) {
-      where.add('daily_food_item_id = ?');
-      whereArgs.add(dailyFoodItemId);
-    }
-
-    if (mealCategory != null) {
-      where.add('meal_category = ?');
-      whereArgs.add(mealCategory);
-    }
-
-    if (startDate != null) {
-      where.add('date >= ?');
-      whereArgs.add(startDate);
-    }
-
-    if (endDate != null) {
-      where.add('date <= ?');
-      whereArgs.add(endDate);
-    }
-
-    final dfiRows = await db.query(
-      DietaryDdl.tableNameOfDailyFoodItem,
-      where: where.isNotEmpty ? where.join(' AND ') : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-    );
-
-    // 如果需要查询详情，则继续查以下内容
-    if (withDetail) {
-      // 如果有查询到日记条目，查询对应的食物和营养素详情
-      final List<DailyFoodItem> list =
-          dfiRows.map((row) => DailyFoodItem.fromMap(row)).toList();
-
-      // 用来存要放回的饮食日记条目详情
-      final dfiwfsList = <DailyFoodItemWithFoodServing>[];
-
-      for (var dailyFoodItem in list) {
-        // ？？？当天日记条目的食物和营养素通过id查询都应该只有一条，数据正确的话也不会为空，所以不做检查
-        final food = Food.fromMap(
-          (await db.query(
-            DietaryDdl.tableNameOfFood,
-            where: 'food_id = ?',
-            whereArgs: [dailyFoodItem.foodId],
-          ))
-              .first,
-        );
-
-        final servingInfo = ServingInfo.fromMap(
-          (await db.query(
-            DietaryDdl.tableNameOfServingInfo,
-            where: 'serving_info_id = ?',
-            whereArgs: [dailyFoodItem.servingInfoId],
-          ))
-              .first,
-        );
-
-        dfiwfsList.add(
-          DailyFoodItemWithFoodServing(
-            dailyFoodItem: dailyFoodItem,
-            food: food,
-            servingInfo: servingInfo,
-          ),
-        );
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.dietSync}/logs/detail",
+        queryParameters: {
+          "userId": userId ?? CacheUser.userId,
+          if (dailyFoodItemId != null) "dailyFoodItemId": dailyFoodItemId,
+          if (startDate != null) "startDate": startDate,
+          if (endDate != null) "endDate": endDate,
+          if (mealCategory != null) "mealCategory": mealCategory,
+          "withDetail": withDetail,
+        },
+        showLoading: false,
+      );
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        if (withDetail) {
+          return list
+              .map(
+                (e) => DailyFoodItemWithFoodServing(
+                  dailyFoodItem: DailyFoodItem.fromMap(e['dailyFoodItem']),
+                  food: Food.fromMap(e['food']),
+                  servingInfo: ServingInfo.fromMap(e['serving']),
+                ),
+              )
+              .toList();
+        } else {
+          return list.map((e) => DailyFoodItem.fromMap(e)).toList();
+        }
       }
-
-      return dfiwfsList;
-    } else {
-      // 不查询详情就直接返回饮食日记条目列表
-      return dfiRows.map((row) => DailyFoodItem.fromMap(row)).toList();
+    } catch (e) {
+      print("Query daily food detail failed: $e");
     }
+    return [];
   }
 
   ///***********************************************/
   /// meal_photo 的相关操作
   ///
-  // 插入单条餐次照片
-  Future<int> insertMealPhoto(MealPhoto mp) async => (await database).insert(
-        DietaryDdl.tableNameOfMealPhoto,
-        mp.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+  // 插入单条餐次照片 (Cloud)
+  Future<int> insertMealPhoto(MealPhoto mp) async {
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.dietSync}/photos",
+        data: mp.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Sync meal photo failed: $e");
+      return 0;
+    }
+  }
 
   Future<List<Object?>> insertMealPhotoList(List<MealPhoto> mpList) async {
-    var batch = (await database).batch();
-
-    for (var item in mpList) {
-      batch.insert(
-        DietaryDdl.tableNameOfMealPhoto,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+    for (var mp in mpList) {
+      await insertMealPhoto(mp);
     }
-
-    return await batch.commit();
+    return [];
   }
 
   // 修改单条餐次照片
-  Future<int> updateMealPhoto(MealPhoto mp) async => (await database).update(
-        DietaryDdl.tableNameOfMealPhoto,
-        mp.toMap(),
-        where: "meal_photo_id = ? ",
-        whereArgs: [mp.mealPhotoId],
+  Future<int> updateMealPhoto(MealPhoto mp) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.dietSync}/photos/${mp.mealPhotoId}",
+        data: mp.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Update meal photo failed: $e");
+      return 0;
+    }
+  }
 
   // 删除单条餐次照片
-  Future<int> deleteMealPhotoById(int mealPhotoId) async =>
-      (await database).delete(
-        DietaryDdl.tableNameOfMealPhoto,
-        where: "meal_photo_id = ? ",
-        whereArgs: [mealPhotoId],
+  Future<int> deleteMealPhotoById(int mealPhotoId) async {
+    try {
+      await HttpUtils.delete(
+        path: "${ApiEndpoints.dietSync}/photos/$mealPhotoId",
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Delete meal photo failed: $e");
+      return 0;
+    }
+  }
 
   // 查询餐次照片
   // 常用的就是指定日期(只有一天起止一样)和指定餐次(也只能查属于自己的照片)
+  // 查询餐次照片 (Cloud)
   Future<List<MealPhoto>> queryMealPhotoList(
     int userId, {
     String? startDate,
@@ -808,44 +519,29 @@ class DBDietaryHelper {
     // 还可以指定日期排序
     String? dateSort,
   }) async {
-    Database db = await database;
-
-    final where = <String>[];
-    final whereArgs = <dynamic>[];
-
-    where.add('user_id = ?');
-    whereArgs.add(userId);
-
-    if (mealCategory != null) {
-      where.add('meal_category = ?');
-      whereArgs.add(mealCategory);
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.dietSync}/photos",
+        queryParameters: {
+          "userId": userId,
+          if (startDate != null) "startDate": startDate,
+          if (endDate != null) "endDate": endDate,
+          if (mealCategory != null) "mealCategory": mealCategory,
+          if (page != null) "page": page,
+          if (pageSize != null) "pageSize": pageSize,
+          "dateSort": dateSort,
+        },
+        showLoading: false,
+      );
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        return list.map((e) => MealPhoto.fromMap(e)).toList();
+      }
+    } catch (e) {
+      print("Query meal photo failed: $e");
     }
-
-    if (startDate != null) {
-      where.add('date >= ?');
-      whereArgs.add(startDate);
-    }
-
-    if (endDate != null) {
-      where.add('date <= ?');
-      whereArgs.add(endDate);
-    }
-
-    var sort = dateSort?.toLowerCase();
-    if (dateSort != null) {
-      // 如果有传入创建时间排序，不是传的降序一律升序
-      sort = dateSort.toLowerCase() == 'desc' ? 'DESC' : 'ASC';
-    }
-
-    final mpRows = await db.query(
-      DietaryDdl.tableNameOfMealPhoto,
-      where: where.join(' AND '),
-      whereArgs: whereArgs,
-      limit: pageSize,
-      offset: (page != null && pageSize != null) ? (page - 1) * pageSize : null,
-      orderBy: sort != null ? 'date $sort' : null,
-    );
-
-    return mpRows.map((row) => MealPhoto.fromMap(row)).toList();
+    return [];
   }
 }

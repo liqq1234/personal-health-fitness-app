@@ -51,11 +51,6 @@ class _InitGuidePageState extends State<InitGuidePage> {
     height: 170,
     currentWeight: 66,
     targetWeight: 66,
-    rdaGoal: 1800,
-    proteinGoal: 120,
-    fatGoal: 60,
-    choGoal: 120,
-    actionRestTime: 30,
   );
 
   @override

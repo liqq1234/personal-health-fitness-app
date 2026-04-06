@@ -6,7 +6,15 @@ import '../../core/storage/db_health_helper.dart';
 import '../dietary/diet_entry.dart';
 import '../diary/sleep_entry.dart';
 import '../../services/sync_service.dart';
+import '../../core/storage/db_user_helper.dart';
 import '../../core/storage/db_training_helper.dart';
+import '../../core/storage/db_dietary_helper.dart';
+import '../../models/training_state.dart';
+import '../../models/dietary_state.dart';
+import '../../models/cus_app_localizations.dart';
+import '../../services/training_schedule_service.dart';
+import '../../services/dietary_analysis_service.dart';
+import '../../core/constants/constants.dart';
 import 'health_weekly_chart.dart';
 import 'health_assessment_card.dart';
 import 'index.dart'; // 为了跳转到训练页
@@ -26,6 +34,11 @@ class _HealthDashboardState extends State<HealthDashboard> {
   double _sleepHours = 0;
   double _dietCalories = 0;
   int _trainingMinutes = 0;
+  double _exerciseCalories = 0;
+  List<TrainingSchedule> _todaySchedules = [];
+  String _dietAdvice = '';
+  double _userWeight = 0;
+  int _rdaGoal = 2000;
   StreamSubscription<int>? _stepSubscription;
 
   @override
@@ -52,11 +65,42 @@ class _HealthDashboardState extends State<HealthDashboard> {
     await _pedometerService.initPedometer();
     var sleepRecords = await _dbHelper.querySleepList(limit: 1);
     var todayStr = DateTime.now().toIso8601String().split('T')[0];
+
+    // 使用简单的饮食日志记录当天的卡路里（仅用于仪表盘顶部展示）
     var dietLogs = await _dbHelper.queryDietList(date: todayStr);
-    // 查询今日运动记录 (从 00:00:00 到 23:59:59)
+
+    // 获取用户信息以获取 RDA 和体重
+    var user = await DBUserHelper().queryUser(userId: CacheUser.userId);
+    if (user != null) {
+      _userWeight = user.currentWeight ?? 70.0;
+      _rdaGoal = user.rdaGoal ?? 2000;
+    }
+
+    // 获取今日排程
+    try {
+      _todaySchedules = await TrainingScheduleService.getDailySchedules(
+        CacheUser.userId,
+        todayStr,
+      );
+    } catch (e) {
+      debugPrint('获取今日排程失败: $e');
+    }
+
+    // 获取最近 7 天详细饮食数据以生成建议 (使用 DBDietaryHelper)
+    var sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    var recentDietDetails = await DBDietaryHelper()
+        .queryDailyFoodItemListWithDetail(
+          userId: CacheUser.userId,
+          startDate: sevenDaysAgo.toIso8601String().split('T')[0],
+          endDate: todayStr,
+          withDetail: true,
+        );
+
+    // 查询今日运动记录
     var trainingLogs = await _dbTrainingHelper.queryTrainedDetailLog(
-      startDate: "$todayStr 00:00:00",
-      endDate: "$todayStr 23:59:59",
+      userId: CacheUser.userId,
+      startDate: todayStr,
+      endDate: todayStr,
     );
 
     if (mounted) {
@@ -73,6 +117,24 @@ class _HealthDashboardState extends State<HealthDashboard> {
           (sum, item) => sum + item.trainedDuration,
         );
         _trainingMinutes = (totalSeconds / 60).ceil();
+
+        // 计算今日运动消耗的卡路里（从 TrainedDetailLog 的 consumption 字段）
+        _exerciseCalories = trainingLogs.fold(
+          0.0,
+          (sum, item) => sum + (item.consumption ?? 0),
+        );
+
+        // 基于最近 7 天详细饮食数据生成饮食建议
+        final analysis = DietaryAnalysisService.analyzeWeeklyIntake(
+          recentDietDetails.cast<DailyFoodItemWithFoodServing>(),
+          _userWeight,
+          _rdaGoal,
+        );
+        _dietAdvice = DietaryAnalysisService.getAnalysisAdvice(
+          analysis['dailyTotals'] as Map<String, FoodNutrientTotals>? ?? {},
+          CusAL.of(context),
+          rDA: _rdaGoal.toDouble(),
+        );
       });
     }
   }
@@ -91,8 +153,9 @@ class _HealthDashboardState extends State<HealthDashboard> {
               const HealthWeeklyChart(),
               HealthAssessmentCard(
                 steps: _steps,
-                calories: _steps * 0.04,
                 sleepHours: _sleepHours,
+                todaySchedules: _todaySchedules,
+                dietAdvice: _dietAdvice,
               ),
               SizedBox(height: 8.sp),
             ],
@@ -206,7 +269,7 @@ class _HealthDashboardState extends State<HealthDashboard> {
                     _buildMetric(Icons.timer, '$_trainingMinutes', 'min(训练时长)'),
                     _buildMetric(
                       Icons.directions_run,
-                      '${(_steps * 0.04).toStringAsFixed(0)}',
+                      '${(_exerciseCalories + _steps * 0.04).toStringAsFixed(0)}',
                       'kcal(消耗)',
                     ),
                   ],

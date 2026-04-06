@@ -36,6 +36,13 @@ public class DiaryService {
     private static final DateTimeFormatter D  = DateTimeFormatter.ofPattern("yyyy-MM-dd");
 
     // ──────── 5.2 日记 CRUD ────────
+    public List<Diary> listEntriesRange(Long userId, String startDate, String endDate, String dateSort) {
+        if ("asc".equalsIgnoreCase(dateSort)) {
+            return diaryRepo.findByUserIdAndDateBetweenOrderByDateAsc(userId, startDate, endDate);
+        } else {
+            return diaryRepo.findByUserIdAndDateBetweenOrderByDateDesc(userId, startDate, endDate);
+        }
+    }
 
     /** 分页查询日记列表（按日期倒序） */
     public Page<Diary> listEntries(Long userId, int page, int size) {

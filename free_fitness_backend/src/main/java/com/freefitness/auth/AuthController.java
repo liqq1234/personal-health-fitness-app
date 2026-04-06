@@ -8,12 +8,14 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 认证接口：注册 / 登录 / 刷新令牌
+ * 认证接口：注册 / 登录 / 刷新 Token
  */
-@Tag(name = "认证", description = "用户注册、登录、JWT令牌刷新")
+@Slf4j
+@Tag(name = "认证中心", description = "用户注册、登录授权、Token 刷新")
 @RestController
 @RequestMapping("/api/v1/auth")
 @RequiredArgsConstructor
@@ -25,6 +27,7 @@ public class AuthController {
     @Operation(summary = "用户注册")
     @PostMapping("/register")
     public Result<TokenResponse> register(@Valid @RequestBody RegisterRequest req) {
+        log.info("User registration attempt: username={}, code={}", req.getUserName(), req.getUserCode());
         return Result.success(authService.register(req));
     }
 
@@ -32,6 +35,7 @@ public class AuthController {
     @Operation(summary = "用户登录")
     @PostMapping("/login")
     public Result<TokenResponse> login(@Valid @RequestBody LoginRequest req) {
+        log.info("User login attempt: userCode={}", req.getUserCode());
         return Result.success(authService.login(req));
     }
 

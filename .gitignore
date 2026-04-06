@@ -10,3 +10,23 @@ openspec/
 论文/
 论文_4500字版/
 资料/
+query
+
+# Build artifacts
+free_fitness/build/
+free_fitness/.dart_tool/
+free_fitness/.flutter-plugins
+free_fitness/.flutter-plugins-dependencies
+free_fitness/.packages
+free_fitness/pubspec.lock
+free_fitness_backend/target/
+
+# IDE and System
+.vscode/
+**/.DS_Store
+**/desktop.ini
+**/Thumbs.db
+
+# Other
+node_modules/
+dist/

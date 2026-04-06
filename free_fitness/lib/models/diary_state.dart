@@ -36,7 +36,7 @@ class Diary {
 
   factory Diary.fromMap(Map<String, dynamic> map) {
     return Diary(
-      diaryId: map['diary_id'] as int?,
+      diaryId: map['diary_id'] ?? map['diaryId'],
       date: map['date'] as String,
       title: map['title'] as String,
       content: map['content'] as String,
@@ -44,10 +44,26 @@ class Diary {
       category: map['category'] as String?,
       mood: map['mood'] as String?,
       photos: map['photos'] as String?,
-      userId: map['user_id'] as int?,
-      gmtCreate: map['gmt_create'] as String?,
-      gmtModified: map['gmt_modified'] as String?,
+      userId: map['user_id'] ?? map['userId'],
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      "diaryId": diaryId,
+      "date": date,
+      "title": title,
+      "content": content,
+      "tags": tags,
+      "category": category,
+      "mood": mood,
+      "photos": photos,
+      "userId": userId,
+      "gmtCreate": gmtCreate,
+      "gmtModified": gmtModified,
+    };
   }
 
   @override

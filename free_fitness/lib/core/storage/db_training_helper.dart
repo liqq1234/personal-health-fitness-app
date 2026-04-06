@@ -8,6 +8,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../models/training_state.dart';
+import '../dio_client/cus_http_client.dart';
+import '../dio_client/api_endpoints.dart';
 import '../constants/constants.dart';
 import 'ddl_training.dart';
 
@@ -50,15 +52,9 @@ class DBTrainingHelper {
   }
 
   // 创建训练数据库相关表
+  // 创建训练数据库相关表 (Decommissioned)
   void createDB(Database db, int newVersion) async {
-    await db.transaction((txn) async {
-      txn.execute(TrainingDdl.ddlForExercise);
-      txn.execute(TrainingDdl.ddlForAction);
-      txn.execute(TrainingDdl.ddlForGroup);
-      txn.execute(TrainingDdl.ddlForPlan);
-      txn.execute(TrainingDdl.ddlForPlanHasGroup);
-      txn.execute(TrainingDdl.ddlForTrainedDetailLog);
-    });
+    print("开始创建表 _createDb (Training moved to cloud)……");
   }
 
   // 关闭数据库
@@ -104,9 +100,7 @@ class DBTrainingHelper {
       'sqlite_master',
       where: 'type = ?',
       whereArgs: ['table'],
-    ))
-        .map((row) => row['name'] as String)
-        .toList(growable: false);
+    )).map((row) => row['name'] as String).toList(growable: false);
 
     if (kDebugMode) {
       print("TrainingDB中拥有的表名:------------");
@@ -161,134 +155,117 @@ class DBTrainingHelper {
   /// 动作库基础表 exercise 的相关操作
   ///
 
-  // 插入单条数据(返回exercise_id)
+  // 插入单条数据(返回exercise_id) (Decommissioned/Redirected)
   Future<int> insertExercise2(Exercise exercise) async =>
-      (await database).insert(
-        TrainingDdl.tableNameOfExercise,
-        exercise.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
-      );
+      insertExercise(exercise);
 
-  // 理论上插入时数据重复，是直接替换，但主键不能变，上面那个主键会变化，所以手动处理
+  // 插入单条基础活动 (Cloud)
   Future<int> insertExercise(Exercise exercise) async {
-    final db = await database;
-    return await db.transaction((txn) async {
-      // 先检查是否已存在相同 exercise_name 的记录
-      final existingByName = await txn.query(
-        TrainingDdl.tableNameOfExercise,
-        where: 'exercise_name = ?',
-        whereArgs: [exercise.exerciseName],
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/exercises",
+        data: exercise.toJson(),
+        showLoading: false,
       );
-
-      // 检查是否已存在相同 exercise_code 的记录
-      final existingByCode = await txn.query(
-        TrainingDdl.tableNameOfExercise,
-        where: 'exercise_code = ?',
-        whereArgs: [exercise.exerciseCode],
-      );
-
-      if (existingByName.isNotEmpty || existingByCode.isNotEmpty) {
-        // 获取已存在记录的主键（优先使用同名的记录）
-        final existingRecord = existingByName.isNotEmpty
-            ? existingByName.first
-            : existingByCode.first;
-        final originalId = existingRecord['exercise_id'] as int;
-
-        // 更新数据（保留原主键）
-        final data = exercise.toMap();
-        data['exercise_id'] = originalId; // 确保使用原主键
-        return await txn.update(
-          TrainingDdl.tableNameOfExercise,
-          data,
-          where: 'exercise_id = ?',
-          whereArgs: [originalId],
-        );
-      } else {
-        // 不存在则插入
-        return await txn.insert(
-          TrainingDdl.tableNameOfExercise,
-          exercise.toMap(),
-        );
-      }
-    });
+      return 1;
+    } catch (e) {
+      print("Sync exercise failed: $e");
+      return 0;
+    }
   }
 
-  Future<List<Object?>> insertExerciseList(List<Exercise> exercises) async {
-    var batch = (await database).batch();
-
-    for (var item in exercises) {
-      batch.insert(
-        TrainingDdl.tableNameOfExercise,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+  // 理论上插入时数据重复，是直接替换，但主键不能变，上面那个主键会变化，所以手动处理
+  // 插入基础活动列表 (Cloud)
+  Future<void> insertExerciseList(List<Exercise> exercises) async {
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/exercises/batch",
+        data: exercises.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+    } catch (e) {
+      print("Batch sync exercises failed: $e");
     }
-
-    return batch.commit();
   }
 
   // 修改单条数据
-  Future<int> updateExercise(Exercise exercise) async =>
-      (await database).update(
-        TrainingDdl.tableNameOfExercise,
-        exercise.toMap(),
-        where: 'exercise_id = ?',
-        whereArgs: [exercise.exerciseId],
+  // 修改单条基础活动 (Cloud)
+  Future<int> updateExercise(Exercise exercise) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.trainingSync}/exercises/${exercise.exerciseId}",
+        data: exercise.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Update exercise failed: $e");
+      return 0;
+    }
+  }
 
   // 删除单条数据
-  Future<int> deleteExerciseById(int id) async => (await database).delete(
-        TrainingDdl.tableNameOfExercise,
-        where: "exercise_id=?",
-        whereArgs: [id],
+  // 删除单条基础活动 (Cloud)
+  Future<int> deleteExerciseById(int id) async {
+    try {
+      await HttpUtils.delete(
+        path: "${ApiEndpoints.trainingSync}/exercises/$id",
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Delete exercise failed: $e");
+      return 0;
+    }
+  }
 
-  // 通过编号查询单条数据(返回exercise_id)
-  Future<Exercise> queryExerciseById(int id) async => Exercise.fromMap(
-        (await (await database).query(
-          TrainingDdl.tableNameOfExercise,
-          where: 'exercise_id = ? ',
-          whereArgs: [id],
-        ))
-            .first,
+  // 通过编号查询单条数据 (Cloud)
+  Future<Exercise> queryExerciseById(int id) async {
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/exercises/$id",
+        showLoading: false,
       );
+      if (response != null && response['data'] != null) {
+        return Exercise.fromMap(response['data']);
+      }
+    } catch (e) {
+      print("Query exercise by id failed: $e");
+    }
+    throw Exception("Exercise not found");
+  }
 
-  // 关键字模糊查询基础活动
+  // 关键字模糊查询基础活动 (Cloud)
   Future<CusDataResult> queryExerciseByKeyword({
     required String keyword,
     required int pageSize, // 一次查询条数显示
     required int page, // 一次查询的偏移量，用于分页
   }) async {
-    Database db = await database;
-    // 根据页数和页面获得偏移量
-    var offset = (page - 1) * pageSize;
-
     try {
-      // 查询指定关键字当前页的数据
-      List<Map<String, dynamic>> maps = await db.query(
-        TrainingDdl.tableNameOfExercise,
-        where: 'exercise_code LIKE ? OR exercise_name LIKE ? LIMIT ? OFFSET ?',
-        whereArgs: ['%$keyword%', '%$keyword%', pageSize, offset],
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/exercises/search",
+        queryParameters: {
+          "keyword": keyword,
+          "pageSize": pageSize,
+          "page": page > 0 ? page - 1 : 0,
+        },
+        showLoading: false,
       );
-      final list = maps.map((row) => Exercise.fromMap(row)).toList();
-
-      // 获取满足查询条件的数据总量
-      int? totalCount = Sqflite.firstIntValue(
-        await db.rawQuery(
-          'SELECT COUNT(*) FROM ${TrainingDdl.tableNameOfExercise} '
-          'WHERE exercise_code LIKE ? OR exercise_name LIKE ?',
-          ['%$keyword%', '%$keyword%'],
-        ),
-      );
-
-      // 查询每页指定数量的数据，但带上总条数
-      return CusDataResult(data: list, total: totalCount ?? 0);
+      if (response != null && response['data'] != null) {
+        var data = response['data'] as Map<String, dynamic>;
+        var list = (data['list'] ?? data['content'] ?? []) as List;
+        return CusDataResult(
+          data: list.map((e) => Exercise.fromMap(e)).toList(),
+          total: data['total'] ?? data['totalElements'] ?? 0,
+        );
+      }
     } catch (e) {
-      rethrow;
+      print("Query exercise by keyword failed: $e");
     }
+    return CusDataResult(data: [], total: 0);
   }
 
-  // 指定栏位查询基础运动
+  // 指定栏位查询基础运动 (Cloud)
   Future<CusDataResult> queryExercise({
     int? exerciseId,
     String? exerciseCode,
@@ -302,335 +279,272 @@ class DBTrainingHelper {
     required int pageSize, // 一次查询条数显示
     required int page, // 页码，用于分页
   }) async {
-    Database db = await database;
-
-    final where = <String>[];
-    final whereArgs = <dynamic>[];
-
-    // 这些条件是准确查询
-    final conditions = {
-      'exercise_id': exerciseId,
-      // 'exercise_code': exerciseCode,
-      // 'exercise_name': exerciseName,
-      'force': force,
-      'level': level,
-      'mechanic': mechanic,
-      'equipment': equipment,
-      'category': category,
-    };
-
-    // 一般的条件是精确查询
-    conditions.forEach((key, value) {
-      if (value != null) {
-        where.add('$key = ?');
-        whereArgs.add(value);
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/exercises",
+        queryParameters: {
+          if (exerciseId != null) "exerciseId": exerciseId,
+          if (exerciseCode != null) "exerciseCode": exerciseCode,
+          if (exerciseName != null) "exerciseName": exerciseName,
+          if (force != null) "force": force,
+          if (level != null) "level": level,
+          if (mechanic != null) "mechanic": mechanic,
+          if (equipment != null) "equipment": equipment,
+          if (category != null) "category": category,
+          if (primaryMuscle != null) "primaryMuscle": primaryMuscle,
+          "pageSize": pageSize,
+          "page": page > 0 ? page - 1 : 0,
+        },
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        var data = response['data'] as Map<String, dynamic>;
+        var list = (data['list'] ?? data['content'] ?? []) as List;
+        return CusDataResult(
+          data: list.map((e) => Exercise.fromMap(e)).toList(),
+          total: data['total'] ?? data['totalElements'] ?? 0,
+        );
       }
-    });
-
-    // 代号、名称、肌肉都是模糊查询
-    if (exerciseCode != null) {
-      where.add('exercise_code LIKE ? OR exercise_name LIKE ? ');
-      whereArgs.add('%$exerciseCode%');
-      whereArgs.add('%$exerciseCode%');
+    } catch (e) {
+      print("Query exercise failed: $e");
     }
-
-    if (exerciseName != null) {
-      where.add('exercise_code LIKE ? OR exercise_name LIKE ? ');
-      whereArgs.add('%$exerciseName%');
-      whereArgs.add('%$exerciseName%');
-    }
-
-    if (primaryMuscle != null) {
-      where.add('primary_muscles LIKE ?');
-      whereArgs.add('%$primaryMuscle%');
-    }
-
-    List<Map<String, dynamic>> maps = await db.query(
-      TrainingDdl.tableNameOfExercise,
-      where: where.isNotEmpty ? where.join(' AND ') : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      limit: pageSize,
-      offset: (page - 1) * pageSize,
-    );
-
-    // 数据是分页查询的，但这里带上满足条件的一共多少条
-    String sql = 'SELECT COUNT(*) FROM ${TrainingDdl.tableNameOfExercise}';
-    if (where.isNotEmpty) {
-      sql += ' WHERE ${where.join(' AND ')}';
-    }
-
-    int totalCount =
-        Sqflite.firstIntValue(await db.rawQuery(sql, whereArgs)) ?? 0;
-
-    final list = maps.map((row) => Exercise.fromMap(row)).toList();
-
-    // 返回时数据列表(使用时先转型)和总数
-    return CusDataResult(data: list, total: totalCount);
+    return CusDataResult(data: [], total: 0);
   }
 
   ///***********************************************/
   ///   group and action 的相关操作
   ///
 
-  // 插入单条训练
-  // 因为新增group没有给主键，而主键是自增的，所以这里返回的row id就是新增主键的group_id
-  Future<int> insertTrainingGroup(TrainingGroup group) async =>
-      (await database).insert(
-        TrainingDdl.tableNameOfGroup,
-        group.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+  // 插入单条训练 (Cloud)
+  Future<int> insertTrainingGroup(TrainingGroup group) async {
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/groups",
+        data: group.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Sync group failed: $e");
+      return 0;
+    }
+  }
 
+  // 插入单条训练组列表 (Cloud)
   Future<List<Object?>> insertTrainingGroupList(
     List<TrainingGroup> tgList,
   ) async {
-    var batch = (await database).batch();
-    for (var item in tgList) {
-      batch.insert(
-        TrainingDdl.tableNameOfGroup,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/groups/batch",
+        data: tgList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync groups failed: $e");
+      return [];
     }
-    return batch.commit();
   }
 
-  // 修改指定训练基本信息（指定id修改）
-  Future<int> updateTrainingGroup(int groupId, TrainingGroup group) async =>
-      (await database).update(
-        TrainingDdl.tableNameOfGroup,
-        group.toMap(),
-        where: "group_id = ? ",
-        whereArgs: [groupId],
-      );
-
-  // 删除单条训练(同时需要删除其所有的action)
-  Future<dynamic> deleteGroupById(int groupId) async {
-    final db = await database;
-
+  // 修改指定训练基本信息 (Cloud)
+  Future<int> updateTrainingGroup(int groupId, TrainingGroup group) async {
     try {
-      return await db.transaction((txn) async {
-        await txn.delete(
-          TrainingDdl.tableNameOfGroup,
-          where: 'group_id = ?',
-          whereArgs: [groupId],
-        );
+      await HttpUtils.put(
+        path: "${ApiEndpoints.trainingSync}/groups/$groupId",
+        data: group.toJson(),
+        showLoading: false,
+      );
+      return 1;
+    } catch (e) {
+      print("Update group failed: $e");
+      return 0;
+    }
+  }
 
-        await txn.delete(
-          TrainingDdl.tableNameOfAction,
-          where: 'group_id = ?',
-          whereArgs: [groupId],
-        );
-      });
+  // 删除单条训练 (Cloud)
+  Future<dynamic> deleteGroupById(int groupId) async {
+    try {
+      return await HttpUtils.delete(
+        path: "${ApiEndpoints.trainingSync}/groups/$groupId",
+        showLoading: false,
+      );
     } catch (e) {
       throw Exception("删除指定训练及其动作失败: $e");
     }
   }
 
-  // 删除单条训练(同时需要删除其所有的plan has group 关系。group有复用，不会删除)
+  // 删除单条计划 (Cloud)
   Future<dynamic> deletePlanById(int planId) async {
-    final db = await database;
-
     try {
-      return await db.transaction((txn) async {
-        await txn.delete(
-          TrainingDdl.tableNameOfPlan,
-          where: 'plan_id = ?',
-          whereArgs: [planId],
-        );
-
-        await txn.delete(
-          TrainingDdl.tableNameOfPlanHasGroup,
-          where: 'plan_id = ?',
-          whereArgs: [planId],
-        );
-      });
+      return await HttpUtils.delete(
+        path: "${ApiEndpoints.trainingSync}/plans/$planId",
+        showLoading: false,
+      );
     } catch (e) {
       throw Exception("删除指定计划及其训练组失败: $e");
     }
   }
 
-  // 查询指定训练以及其所有动作
-  // 训练支持条件查询，估计训练的数量不会多，就暂时不分页；同事关联的动作就全部带出。
+  // 查询指定训练以及其所有动作 (Cloud)
   Future<List<GroupWithActions>> searchGroupWithActions({
     int? groupId,
     String? groupName, // 模糊查询
     String? groupCategory, // 分类和级别最好是下拉选择的结果，用精确查询
     String? groupLevel,
   }) async {
-    final db = await database;
-
-    var where = [];
-    var whereArgs = [];
-
-    if (groupId != null) {
-      where.add("group_id =? ");
-      whereArgs.add(groupId);
-    }
-    if (groupName != null) {
-      where.add("group_name LIKE ? ");
-      whereArgs.add("%$groupName%");
-    }
-    if (groupCategory != null) {
-      where.add("group_category = ? ");
-      whereArgs.add(groupCategory);
-    }
-    if (groupLevel != null) {
-      where.add("group_level = ? ");
-      whereArgs.add(groupLevel);
-    }
-
-    final List<Map<String, dynamic>> groupRows = where.isEmpty
-        ? await db.query(TrainingDdl.tableNameOfGroup)
-        : await db.query(
-            TrainingDdl.tableNameOfGroup,
-            where: where.join(' AND '),
-            whereArgs: whereArgs,
-          );
-
-    final list = <GroupWithActions>[];
-
-    for (final row in groupRows) {
-      final group = TrainingGroup.fromMap(row);
-      final actionRows = await db.query(
-        TrainingDdl.tableNameOfAction,
-        where: 'group_id = ?',
-        whereArgs: [group.groupId],
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/groups/search",
+        queryParameters: {
+          if (groupId != null) "groupId": groupId,
+          if (groupName != null) "groupName": groupName,
+          if (groupCategory != null) "groupCategory": groupCategory,
+          if (groupLevel != null) "groupLevel": groupLevel,
+        },
+        showLoading: false,
       );
-
-      // 上面是异步的，说是性能要好些
-      final adList = <ActionDetail>[];
-      for (final r in actionRows) {
-        final action = TrainingAction.fromMap(r);
-        final exerciseRows = await db.query(
-          TrainingDdl.tableNameOfExercise,
-          where: 'exercise_id = ?',
-          whereArgs: [action.exerciseId],
-        );
-
-        // ？？？理论上这里只有查到1个exercise，且不应该差不多(暂不考虑异常情况)
-        if (exerciseRows.isNotEmpty) {
-          var ad = ActionDetail(
-            action: action,
-            exercise: Exercise.fromMap(exerciseRows[0]),
-          );
-          adList.add(ad);
-        }
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        return list
+            .map(
+              (e) => GroupWithActions(
+                group: TrainingGroup.fromMap(e['group']),
+                actionDetailList: (e['actions'] as List)
+                    .map(
+                      (a) => ActionDetail(
+                        action: TrainingAction.fromMap(a['action']),
+                        exercise: Exercise.fromMap(a['exercise']),
+                      ),
+                    )
+                    .toList(),
+              ),
+            )
+            .toList();
       }
-
-      list.add(GroupWithActions(group: group, actionDetailList: adList));
+    } catch (e) {
+      print("Search group with actions failed: $e");
     }
-
-    return list;
+    return [];
   }
 
-  // 插入动作组（单条也当数组插入）
+  // 插入动作组 (Cloud)
   Future<List<Object?>> insertTrainingActionList(
     List<TrainingAction> actionList,
   ) async {
-    Database db = await database;
-
-    var batch = db.batch();
-    for (var item in actionList) {
-      batch.insert(
-        TrainingDdl.tableNameOfAction,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/actions/batch",
+        data: actionList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync actions failed: $e");
+      return [];
     }
-
-    return batch.commit();
   }
 
-  // 更新指定训练的所有动作(删除所有已有的，新增传入的)
+  // 更新指定训练的所有动作 (Cloud)
   Future<List<Object?>> renewGroupWithActionsList(
     int groupId,
     List<TrainingAction> actionList,
   ) async {
-    Database db = await database;
-
-    return await db.transaction((txn) async {
-      await txn.delete(
-        TrainingDdl.tableNameOfAction,
-        where: "group_id =? ",
-        whereArgs: [groupId],
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/groups/$groupId/actions/renew",
+        data: actionList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
-
-      var batch = txn.batch();
-      for (var item in actionList) {
-        batch.insert(
-          TrainingDdl.tableNameOfAction,
-          item.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-
-      return batch.commit();
-    });
+      return [];
+    } catch (e) {
+      print("Renew group actions failed: $e");
+      return [];
+    }
   }
 
   ///***********************************************/
   ///   plan and group 的相关操作
   ///
 
-  /// 插入单个计划基本信息
-  Future<int> insertTrainingPlan(TrainingPlan plan) async =>
-      (await database).insert(
-        TrainingDdl.tableNameOfPlan,
-        plan.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+  // 插入单个计划基本信息 (Cloud)
+  Future<int> insertTrainingPlan(TrainingPlan plan) async {
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/plans",
+        data: plan.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Sync plan failed: $e");
+      return 0;
+    }
+  }
 
+  // 插入训练计划列表 (Cloud)
   Future<List<Object?>> insertTrainingPlanList(
     List<TrainingPlan> tpList,
   ) async {
-    var batch = (await database).batch();
-    for (var item in tpList) {
-      batch.insert(
-        TrainingDdl.tableNameOfPlan,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/plans/batch",
+        data: tpList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync plans failed: $e");
+      return [];
     }
-    return batch.commit();
   }
 
-  // 插入动作组(插入plan has group 表，单条也当数组插入）
+  // 插入计划组列表 (Cloud)
   Future<List<Object?>> insertPlanHasGroupList(
     List<PlanHasGroup> phgList,
   ) async {
-    var batch = (await database).batch();
-    for (var item in phgList) {
-      batch.insert(
-        TrainingDdl.tableNameOfPlanHasGroup,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/plans/groups/batch",
+        data: phgList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync plan groups failed: $e");
+      return [];
     }
-    return batch.commit();
   }
 
-  // 修改指定计划基本信息（指定id修改）
-  Future<int> updateTrainingPlanById(int planId, TrainingPlan plan) async =>
-      (await database).update(
-        TrainingDdl.tableNameOfPlan,
-        plan.toMap(),
-        where: "plan_id = ? ",
-        whereArgs: [planId],
+  // 修改指定计划基本信息 (Cloud)
+  Future<int> updateTrainingPlanById(int planId, TrainingPlan plan) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.trainingSync}/plans/$planId",
+        data: plan.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Update plan failed: $e");
+      return 0;
+    }
+  }
 
   Future<List<TrainingPlan>> queryTrainingPlanById(int planId) async {
     return (await (await database).query(
       TrainingDdl.tableNameOfPlan,
       where: "plan_id =? ",
       whereArgs: [planId],
-    ))
-        .map((row) => TrainingPlan.fromMap(row))
-        .toList();
+    )).map((row) => TrainingPlan.fromMap(row)).toList();
   }
 
-  /// ？？？查询指定计划以及其所有训练（3层嵌套，看怎么优化）
-  // 计划支持条件查询，估计计划的数量不会多，就暂时不分页；同时关联的训练就全部带出。
+  // Deduplicate existing exercises (Decommissioned/Dummy for compatibility)
+  Future<int> deduplicateExercises() async => 0;
+
+  // 查询指定计划以及其所有训练 (Cloud)
   Future<List<PlanWithGroups>> searchPlanWithGroups({
     int? planId,
     String? planName, // 模糊查询
@@ -638,238 +552,176 @@ class DBTrainingHelper {
     String? planCategory, // 分类和级别最好是下拉选择的结果，用精确查询
     String? planLevel,
   }) async {
-    final db = await database;
-
-    var where = [];
-    var whereArgs = [];
-
-    if (planId != null) {
-      where.add("plan_id =? ");
-      whereArgs.add(planId);
-    }
-    if (planName != null) {
-      where.add("plan_name like ? ");
-      whereArgs.add("%$planName%");
-    }
-    if (planCategory != null) {
-      where.add("plan_category =? ");
-      whereArgs.add(planCategory);
-    }
-    if (planLevel != null) {
-      where.add("plan_level = ? ");
-      whereArgs.add(planLevel);
-    }
-
-    /// 简单来说，就是级联的查询每个基础表，组合到一起：
-    /// plan -> plan_has_group -> group -> action -> exercise
-    /// 对应自定义类的包含关系(从大到细)
-    ///  PlanWithGroups
-    ///  -> plan + GroupWithActions
-    ///  -> plan + (group + ActionDetail)
-    ///  -> plan + (group + (action + exercise))
-
-    // 1 查询计划基础表
-    final planRows = where.isEmpty
-        ? await db.query(TrainingDdl.tableNameOfPlan)
-        : await db.query(
-            TrainingDdl.tableNameOfPlan,
-            where: where.join(" AND "),
-            whereArgs: whereArgs,
-          );
-
-    // 2 通过计划基础表数据查询 计划训练关联表数据
-    final pwgList = <PlanWithGroups>[];
-    for (final row in planRows) {
-      final plan = TrainingPlan.fromMap(row);
-
-      final planHasGroupRows = await db.query(
-        TrainingDdl.tableNameOfPlanHasGroup,
-        where: 'plan_id = ?',
-        whereArgs: [plan.planId],
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/plans/search",
+        queryParameters: {
+          if (planId != null) "planId": planId,
+          if (planName != null) "planName": planName,
+          if (planCode != null) "planCode": planCode,
+          if (planCategory != null) "planCategory": planCategory,
+          if (planLevel != null) "planLevel": planLevel,
+        },
+        showLoading: false,
       );
-
-      // 3 通过计划训练关联表数据查询 训练基础表数据
-      final gwaList = <GroupWithActions>[];
-      // 构建groupWithActions实例
-      for (final phg in planHasGroupRows) {
-        // 先通过id查到指定group，再通过group查询包含的action
-        final planHasGroup = PlanHasGroup.fromMap(phg);
-
-        // ？？？主键查询数据，理论上是有且只有1个，不会为空
-        var group = TrainingGroup.fromMap(
-          (await db.query(
-            TrainingDdl.tableNameOfGroup,
-            where: 'group_id = ?',
-            whereArgs: [planHasGroup.groupId],
-          ))
-              .first,
-        );
-
-        // 4 通过训练基础表数据查询 动作基础表数据
-        final actionRows = await db.query(
-          TrainingDdl.tableNameOfAction,
-          where: 'group_id = ?',
-          whereArgs: [group.groupId],
-        );
-
-        // 5 通过 动作基础表数据查询管理的基础运动基础表数据
-        final adList = <ActionDetail>[];
-        // 构建actionDetail 实例
-        for (final a in actionRows) {
-          final action = TrainingAction.fromMap(a);
-          // ？？？理论上这里1个动作只有查到1个基础运动，且不应该查不到(暂不考虑异常情况)
-
-          var exerciseRows = await db.query(
-            TrainingDdl.tableNameOfExercise,
-            where: 'exercise_id = ?',
-            whereArgs: [action.exerciseId],
-          );
-
-          if (exerciseRows.isNotEmpty) {
-            final exercise = Exercise.fromMap(exerciseRows.first);
-
-            adList.add(ActionDetail(action: action, exercise: exercise));
-          }
-        }
-
-        gwaList.add(GroupWithActions(group: group, actionDetailList: adList));
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        return list
+            .map(
+              (e) => PlanWithGroups(
+                plan: TrainingPlan.fromMap(e['plan']),
+                groupDetailList: (e['groups'] as List)
+                    .map(
+                      (g) => GroupWithActions(
+                        group: TrainingGroup.fromMap(g['group']),
+                        actionDetailList: (g['actions'] as List)
+                            .map(
+                              (a) => ActionDetail(
+                                action: TrainingAction.fromMap(a['action']),
+                                exercise: Exercise.fromMap(a['exercise']),
+                              ),
+                            )
+                            .toList(),
+                      ),
+                    )
+                    .toList(),
+              ),
+            )
+            .toList();
       }
-
-      pwgList.add(PlanWithGroups(plan: plan, groupDetailList: gwaList));
+    } catch (e) {
+      print("Search plan with groups failed: $e");
     }
-
-    return pwgList;
+    return [];
   }
 
   // 更新指定训练的所有动作(删除所有已有的，新增传入的)
+  // 更新指定计划的所有计划项 (Cloud)
   Future<List<Object?>> renewPlanWithGroupList(
     int planId,
     List<PlanHasGroup> phgList,
   ) async {
-    Database db = await database;
-
-    return await db.transaction((txn) async {
-      // 2023-12-30 一并更新该计划的周期为列表的长度
-      await txn.rawUpdate(
-        'UPDATE ${TrainingDdl.tableNameOfPlan} SET plan_period = ?  WHERE plan_id = ?',
-        [phgList.length, planId],
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/plans/$planId/groups/renew",
+        data: phgList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
-
-      await txn.delete(
-        TrainingDdl.tableNameOfPlanHasGroup,
-        where: "plan_id = ? ",
-        whereArgs: [planId],
-      );
-
-      var batch = txn.batch();
-      for (var item in phgList) {
-        batch.insert(
-          TrainingDdl.tableNameOfPlanHasGroup,
-          item.toMap(),
-          conflictAlgorithm: ConflictAlgorithm.replace,
-        );
-      }
-
-      return batch.commit();
-    });
+      return [];
+    } catch (e) {
+      print("Renew plan groups failed: $e");
+      return [];
+    }
   }
 
   ///***********************************************/
   ///  training_detail_log 的相关操作
   ///
 
-  /// 插入单个计划基本信息
-  Future<int> insertTrainedDetailLog(TrainedDetailLog log) async =>
-      (await database).insert(
-        TrainingDdl.tableNameOfTrainedDetailLog,
-        log.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+  // 插入单条训练日志 (Cloud)
+  Future<int> insertTrainedDetailLog(TrainedDetailLog log) async {
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/logs",
+        data: log.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Sync training log failed: $e");
+      return 0;
+    }
+  }
 
-  // 批量插入训练日志(备份恢复时有用到)
+  // 批量插入训练日志 (Cloud)
   Future<List<Object?>> insertTrainingDetailLogList(
     List<TrainedDetailLog> tlList,
   ) async {
-    var batch = (await database).batch();
-
-    for (var item in tlList) {
-      batch.insert(
-        TrainingDdl.tableNameOfTrainedDetailLog,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.trainingSync}/logs/batch",
+        data: tlList.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync logs failed: $e");
+      return [];
     }
-
-    return batch.commit();
   }
 
   // 2023-12-27 日志改为宽表，直接查出数据，不用关联查询
+  // 2023-12-27 日志改为宽表，直接查出数据，不用关联查询 (Cloud)
   Future<List<TrainedDetailLog>> queryTrainedDetailLog({
     int? userId,
     String? startDate,
     String? endDate,
     String? gmtCreateSort = "ASC", // 按创建时间升序或者降序排序
   }) async {
-    final db = await database;
-
-    var where = [];
-    var whereArgs = [];
-
-    if (userId != null) {
-      where.add(" user_id = ? ");
-      whereArgs.add(userId);
+    try {
+      bool isRange = startDate != null && endDate != null;
+      var response = await HttpUtils.get(
+        path: isRange
+            ? "${ApiEndpoints.trainingSync}/logs/range"
+            : "${ApiEndpoints.trainingSync}/logs",
+        queryParameters: {
+          "userId": userId ?? CacheUser.userId,
+          if (startDate != null) "startDate": startDate,
+          if (endDate != null) "endDate": endDate,
+          if (!isRange) "page": 0,
+          if (!isRange) "size": 1000,
+          "gmtCreateSort": gmtCreateSort,
+        },
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        var data = response['data'];
+        List<dynamic> list = [];
+        if (data is List) {
+          list = data;
+        } else if (data is Map && data.containsKey('content')) {
+          list = data['content'] as List;
+        } else if (data is Map && data.containsKey('list')) {
+          list = data['list'] as List;
+        }
+        return list.map((e) => TrainedDetailLog.fromMap(e)).toList();
+      }
+    } catch (e) {
+      print("Query training logs failed: $e");
     }
-    if (startDate != null) {
-      where.add(" trained_date >= ? ");
-      whereArgs.add(startDate);
-    }
-    if (endDate != null) {
-      where.add(" trained_date <= ? ");
-      whereArgs.add(endDate);
-    }
-
-    // 如果有传入创建时间排序，不是传的降序一律升序
-    var sort = gmtCreateSort?.toLowerCase() == 'desc' ? 'DESC' : 'ASC';
-
-    final rows = await db.query(
-      TrainingDdl.tableNameOfTrainedDetailLog,
-      where: where.isNotEmpty ? where.join(" AND ") : null,
-      whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-      orderBy: 'trained_date $sort',
-    );
-
-    return rows.map((row) => TrainedDetailLog.fromMap(row)).toList();
+    return [];
   }
 
   /// 2023-12-27 查询训练计划中每一个训练日最近一次跟练的时间
   /// 因为group_name和plan_name是唯一的，而id是自增，可能删除之后万一新的又和旧的编号一样了
   /// 所以通过名称查询；而且这个名称也不会是用户手动输入，所以也不担心匹配不上。
+  // 查询指定计划中每一个训练日最近一次跟练的时间 (Cloud)
   Future<Map<int, TrainedDetailLog?>> queryLastTrainingDetailLogByPlanName(
     TrainingPlan plan,
   ) async {
-    final db = await database;
-
-    // 对应计划的每个训练日编号作为key，该训练日的最新训练记录作为value。
-    Map<int, TrainedDetailLog?> logMap = {};
-
-    /// 只找最后一次的记录，那就创建时间倒序查询计划编号和对应训练日编号的最新数据
-    for (var i = 0; i < plan.planPeriod; i++) {
-      final logRows = await db.query(
-        TrainingDdl.tableNameOfTrainedDetailLog,
-        where: "plan_name = ? AND day_number = ? ",
-        whereArgs: [plan.planName, i + 1],
-        orderBy: 'trained_date DESC',
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/logs/last-by-plan",
+        queryParameters: {"planName": plan.planName},
+        showLoading: false,
       );
-
-      if (logRows.isEmpty) {
-        logMap[i + 1] = null;
-      } else {
-        // 训练时间倒序排列的，所以选第一个即可
-        logMap[i + 1] = TrainedDetailLog.fromMap(logRows.first);
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is Map) {
+        Map<String, dynamic> data = response['data'];
+        return data.map(
+          (key, value) => MapEntry(
+            int.parse(key),
+            value != null ? TrainedDetailLog.fromMap(value) : null,
+          ),
+        );
       }
+    } catch (e) {
+      print("Query last log by plan failed: $e");
     }
-
-    return logMap;
+    return {};
   }
 
   /// 2023-12-27 因为已经有了训练日志宽表，所以，即便有训练日志也可以删除；
@@ -877,24 +729,41 @@ class DBTrainingHelper {
   ///   计划可以随便删；
   ///   训练没有被计划使用即可删除；
   ///   exercise没有对应action(没有被训练使用)即可删除
+  // 判断基础活动是否被使用 (Cloud)
   Future<List<Map<String, Object?>>> isExerciseUsed(int exerciseId) async {
-    Database db = await database;
-
-    // 如果对应的exercise编号关联查询的结果不为空，则说明有被使用，不允许删除
-    return await db.rawQuery('''
-      SELECT a.action_id,g.group_id,phg.plan_id
-      FROM ${TrainingDdl.tableNameOfAction} a
-      LEFT JOIN ${TrainingDdl.tableNameOfGroup}         g   ON g.group_id = a.group_id  
-      LEFT JOIN ${TrainingDdl.tableNameOfPlanHasGroup}  phg ON phg.group_id = g.group_id
-      WHERE a.exercise_id = $exerciseId;
-      ''');
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/exercises/$exerciseId/usage",
+        showLoading: false,
+      );
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        return list.cast<Map<String, Object?>>();
+      }
+    } catch (e) {
+      print("Check exercise usage failed: $e");
+    }
+    return [];
   }
 
-  // 这个训练有所属的计划
-  Future<List<Map<String, Object?>>> isGroupUsed(int groupId) async =>
-      await (await database).query(
-        TrainingDdl.tableNameOfPlanHasGroup,
-        where: 'group_id = ? ',
-        whereArgs: [groupId],
+  // 判断训练组是否被使用 (Cloud)
+  Future<List<Map<String, Object?>>> isGroupUsed(int groupId) async {
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.trainingSync}/groups/$groupId/usage",
+        showLoading: false,
       );
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        return list.cast<Map<String, Object?>>();
+      }
+    } catch (e) {
+      print("Check group usage failed: $e");
+    }
+    return [];
+  }
 }

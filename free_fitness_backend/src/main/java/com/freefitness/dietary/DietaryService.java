@@ -135,6 +135,31 @@ public class DietaryService {
         return itemRepo.save(req);
     }
 
+    @Transactional(readOnly = true)
+    public List<com.freefitness.dietary.dto.DailyItemDetail> getDailyItemsDetailRange(
+            Long userId, String startDate, String endDate, String mealCategory) {
+
+        List<DailyFoodItem> items;
+        if (startDate != null && endDate != null) {
+            items = itemRepo.findByUserIdAndDateBetweenOrderByGmtCreateAsc(userId, startDate, endDate);
+        } else {
+            // fallback to current date or just empty
+            items = itemRepo.findByUserIdAndDateOrderByGmtCreateAsc(userId, LocalDate.now().format(D));
+        }
+
+        if (mealCategory != null) {
+            items = items.stream()
+                    .filter(i -> mealCategory.equals(i.getMealCategory()))
+                    .collect(Collectors.toList());
+        }
+
+        return items.stream().map(i -> {
+            Food f = foodRepo.findById(i.getFoodId()).orElse(null);
+            ServingInfo s = servingInfoRepo.findById(i.getServingInfoId()).orElse(null);
+            return new com.freefitness.dietary.dto.DailyItemDetail(i, f, s);
+        }).collect(Collectors.toList());
+    }
+
     @Transactional
     public void deleteDailyItem(Long userId, Long itemId) {
         DailyFoodItem existing = itemRepo.findById(itemId)

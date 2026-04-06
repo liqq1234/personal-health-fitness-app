@@ -9,7 +9,7 @@ class AppLocalizationsEn extends AppLocalizations {
   AppLocalizationsEn([String locale = 'en']) : super(locale);
 
   @override
-  String get appTitle => 'Free Fitness';
+  String get appTitle => 'Free Health';
 
   @override
   String get todaySteps => 'Today\'s Steps';
@@ -299,6 +299,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get exerciseImport => 'Import Exercise Json';
+
+  @override
+  String get deduplicateExercises => 'Clean up duplicate exercises';
+
+  @override
+  String deduplicateFinished(int count) {
+    return '$count duplicate records merged.';
+  }
 
   @override
   String get exerciseLabelNote => 'LTR: index - code - name - level';
@@ -643,6 +651,8 @@ class AppLocalizationsEn extends AppLocalizations {
       '2': 'Tomorrow',
       '3': 'LastWeek',
       '4': 'ThisWeek',
+      '5': 'ThisMonth',
+      '6': 'LastMonth',
       'other': 'Other',
     });
     return '$_temp0';
@@ -1102,4 +1112,58 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get confirmLoadEmbeddedFood =>
       'Load embedded food? This will overwrite duplicates.';
+
+  @override
+  String get dietaryAdviceTitle => 'Dietary Analysis (Last 7 Days)';
+
+  @override
+  String get proteinDeficitAdvice =>
+      '[Low Protein] Consider adding: chicken breast, lean beef, eggs, soy products, or dairy to support muscle health.';
+
+  @override
+  String get fiberDeficitAdvice =>
+      '[Low Fiber] Consider adding: fresh vegetables (broccoli, spinach), fruits, oats, and whole grains for digestive health.';
+
+  @override
+  String get dietaryGoodAdvice =>
+      '[Balanced Intake] Your nutrient levels look great! Keep up the good eating habits.';
+
+  @override
+  String get healthAssessmentDetail => 'Today\'s Health Assessment';
+
+  @override
+  String get stepsStatus => 'Steps Goal';
+
+  @override
+  String get trainingStatus => 'Training Plan';
+
+  @override
+  String get sleepStatus => 'Sleep Check';
+
+  @override
+  String get dietAdviceStatus => 'Dietary Advice';
+
+  @override
+  String get targetReached => 'Reached';
+
+  @override
+  String get targetNotReached => 'Not Reached';
+
+  @override
+  String get trainingCompleted => 'Completed';
+
+  @override
+  String get trainingPending => 'Pending';
+
+  @override
+  String get noTrainingScheduled => 'No Plan Today';
+
+  @override
+  String get sleepSufficient => 'Sufficient';
+
+  @override
+  String get sleepInsufficient => 'Insufficient';
+
+  @override
+  String get viewDietAdvice => 'View Advice';
 }

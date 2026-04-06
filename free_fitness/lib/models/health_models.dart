@@ -25,12 +25,22 @@ class DailySteps {
 
   factory DailySteps.fromMap(Map<String, dynamic> map) {
     return DailySteps(
-      id: map['steps_id'],
-      date: map['date'],
-      steps: map['steps'],
-      calories: map['calories'],
-      gmtCreate: map['gmt_create'],
+      id: map['steps_id'] ?? map['stepsId'],
+      date: map['date'] ?? "",
+      steps: map['steps'] ?? 0,
+      calories: (map['calories'] ?? 0.0).toDouble(),
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'] ?? "",
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'stepsId': id,
+      'date': date,
+      'steps': steps,
+      'calories': calories,
+      'gmtCreate': gmtCreate,
+    };
   }
 }
 
@@ -64,13 +74,25 @@ class SleepRecord {
 
   factory SleepRecord.fromMap(Map<String, dynamic> map) {
     return SleepRecord(
-      id: map['sleep_id'],
-      startTime: map['start_time'],
-      endTime: map['end_time'],
-      durationHours: map['duration_hours'],
+      id: map['sleep_id'] ?? map['sleepId'],
+      startTime: map['start_time'] ?? map['startTime'] ?? "",
+      endTime: map['end_time'] ?? map['endTime'] ?? "",
+      durationHours: (map['duration_hours'] ?? map['durationHours'] ?? 0.0)
+          .toDouble(),
       note: map['note'] ?? '',
-      gmtCreate: map['gmt_create'],
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'] ?? "",
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'sleepId': id,
+      'startTime': startTime,
+      'endTime': endTime,
+      'durationHours': durationHours,
+      'note': note,
+      'gmtCreate': gmtCreate,
+    };
   }
 }
 
@@ -107,14 +129,26 @@ class DietLog {
 
   factory DietLog.fromMap(Map<String, dynamic> map) {
     return DietLog(
-      id: map['diet_id'],
-      date: map['date'],
-      category: map['category'],
-      foodName: map['food_name'],
-      calories: map['calories'],
-      protein: map['protein'],
-      gmtCreate: map['gmt_create'],
+      id: map['diet_id'] ?? map['dietId'],
+      date: map['date'] ?? "",
+      category: map['category'] ?? "",
+      foodName: map['food_name'] ?? map['foodName'] ?? "",
+      calories: (map['calories'] ?? 0.0).toDouble(),
+      protein: (map['protein'] ?? 0.0).toDouble(),
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'] ?? "",
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dietId': id,
+      'date': date,
+      'category': category,
+      'foodName': foodName,
+      'calories': calories,
+      'protein': protein,
+      'gmtCreate': gmtCreate,
+    };
   }
 }
 
@@ -125,6 +159,8 @@ class ExerciseSession {
   double distance;
   int steps;
   String? pathPoints;
+  double? calories;
+  int? durationSeconds;
   String gmtCreate;
 
   ExerciseSession({
@@ -134,6 +170,8 @@ class ExerciseSession {
     this.distance = 0,
     this.steps = 0,
     this.pathPoints,
+    this.calories,
+    this.durationSeconds,
     required this.gmtCreate,
   });
 
@@ -145,19 +183,37 @@ class ExerciseSession {
       'distance': distance,
       'steps': steps,
       'path_points': pathPoints,
+      'calories': calories,
+      'duration_seconds': durationSeconds,
       'gmt_create': gmtCreate,
     };
   }
 
   factory ExerciseSession.fromMap(Map<String, dynamic> map) {
     return ExerciseSession(
-      id: map['session_id'],
-      startTime: map['start_time'],
-      endTime: map['end_time'],
-      distance: map['distance'],
-      steps: map['steps'],
-      pathPoints: map['path_points'],
-      gmtCreate: map['gmt_create'],
+      id: map['session_id'] ?? map['sessionId'],
+      startTime: map['start_time'] ?? map['startTime'] ?? "",
+      endTime: map['end_time'] ?? map['endTime'],
+      distance: (map['distance'] ?? 0.0).toDouble(),
+      steps: map['steps'] ?? 0,
+      pathPoints: map['path_points'] ?? map['pathPoints'],
+      calories: (map['calories'] ?? map['calories'] ?? 0.0).toDouble(),
+      durationSeconds: map['duration_seconds'] ?? map['durationSeconds'],
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'] ?? "",
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'sessionId': id,
+      'startTime': startTime,
+      'endTime': endTime,
+      'distance': distance,
+      'steps': steps,
+      'pathPoints': pathPoints,
+      'calories': calories,
+      'durationSeconds': durationSeconds,
+      'gmtCreate': gmtCreate,
+    };
   }
 }

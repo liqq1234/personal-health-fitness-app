@@ -2,6 +2,7 @@ import 'package:intl/intl.dart';
 import '../core/dio_client/cus_http_client.dart';
 import '../core/storage/db_health_helper.dart';
 import '../core/constants/constants.dart';
+import '../core/dio_client/api_endpoints.dart';
 import '../models/health_models.dart';
 
 class SyncService {
@@ -64,7 +65,7 @@ class SyncService {
 
       // 3. Post to Spring Boot
       await HttpUtils.post(
-        path: "/health/sync",
+        path: "${ApiEndpoints.healthSync}/sync",
         data: payload,
         showLoading: false,
       );
@@ -80,7 +81,7 @@ class SyncService {
     try {
       // 请求后端增加模拟步数
       var response = await HttpUtils.post(
-        path: "/health/simulate-walk",
+        path: "${ApiEndpoints.healthSync}/simulate-walk",
         showLoading: true,
       );
 
@@ -105,7 +106,7 @@ class SyncService {
     try {
       String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       var response = await HttpUtils.get(
-        path: "/health/steps",
+        path: "${ApiEndpoints.healthSync}/steps",
         queryParameters: {"startDate": today, "endDate": today},
         showLoading: false,
       );

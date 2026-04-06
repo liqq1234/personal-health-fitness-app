@@ -16,6 +16,12 @@ const constTimeFormat = "HH:mm:ss";
 const unknownDateTimeString = '1970-01-01 00:00:00';
 const unknownDateString = '1970-01-01';
 
+// 是否开启云端同步模式 (Is Cloud Sync mode enabled)
+const bool isCloudSyncEnabled = true;
+// 服务端 API 基地址 (Server API Base URL)
+// 注意：真机测试时，请将 127.0.0.1 替换为你电脑的局域网 IP (如 192.168.1.xxx)
+const String apiBaseUrl = "http://127.0.0.1:8080/api/v1";
+
 // 1 大卡 = 4.184 千焦
 const double oneCalToKjRatio = 4.18400;
 
@@ -45,9 +51,11 @@ class LocalStorageKey {
   static const String gender = 'gender';
   static const String description = 'description';
   static const String token = 'auth_token';
+  static const String isCloudSyncEnabled = 'is_cloud_sync_enabled';
 
   // 应用初始化相关标记
   static const String exerciseDataImported = 'exercise_data_imported';
+  static const String exerciseLanguageImported = 'exercise_language_imported';
   static const String foodDataImported = 'food_data_imported';
 }
 
@@ -92,7 +100,7 @@ class CacheUser {
 
   static Future<void> updateUserCode(String newUserCode) async {
     userCode = newUserCode;
-    await box.write(LocalStorageKey.userName, newUserCode);
+    await box.write(LocalStorageKey.userCode, newUserCode);
   }
 
   static String? token() => box.read(LocalStorageKey.token);
@@ -331,14 +339,9 @@ Map<CusNutType, Color> cusNutrientColors = {
 /// ********************************************************
 
 final List<CusLabel> genderOptions = [
+  CusLabel(enLabel: 'Secret', cnLabel: "隐藏", value: 'secret'),
   CusLabel(enLabel: 'Male', cnLabel: "男", value: 'male'),
   CusLabel(enLabel: 'Female', cnLabel: "女", value: 'female'),
-  CusLabel(
-    enLabel: 'Thunder Fighter',
-    cnLabel: "雷霆战机",
-    value: 'thunder fighter',
-  ),
-  CusLabel(enLabel: 'Other', cnLabel: "其他", value: 'other'),
 ];
 
 /// 基础活动的一些分类选项
@@ -524,7 +527,9 @@ List<CusLabel> dietaryReportDisplayModeList = [
   CusLabel(enLabel: "Today", cnLabel: "今天", value: "today"),
   CusLabel(enLabel: "Yesterday", cnLabel: "昨天", value: "yesterday"),
   CusLabel(enLabel: "ThisWeek", cnLabel: "本周", value: "this_week"),
-  CusLabel(enLabel: "Lastweek", cnLabel: "上周", value: "last_week"),
+  CusLabel(enLabel: "LastWeek", cnLabel: "上周", value: "last_week"),
+  CusLabel(enLabel: "ThisMonth", cnLabel: "本月", value: "this_month"),
+  CusLabel(enLabel: "LastMonth", cnLabel: "上月", value: "last_month"),
 ];
 
 // 手记中的情绪标签选择项

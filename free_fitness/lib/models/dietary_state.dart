@@ -36,17 +36,34 @@ class Food {
   // 用于从数据库行映射到 ServingInfo 对象的 fromMap 方法
   factory Food.fromMap(Map<String, dynamic> map) {
     return Food(
-      foodId: map['food_id'] as int?,
+      foodId: map['food_id'] ?? map['foodId'],
       brand: map['brand'] as String,
       product: map['product'] as String,
-      photos: map['photos'] as String?,
       description: map['description'] as String?,
+      photos: map['photos'] as String?,
       tags: map['tags'] as String?,
       category: map['category'] as String?,
       contributor: map['contributor'] as String?,
-      gmtCreate: map['gmt_create'] as String?,
-      isDeleted: map['is_deleted'] == 0 ? false : true,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      isDeleted: (map['is_deleted'] == 0 || map['isDeleted'] == false)
+          ? false
+          : true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'foodId': foodId,
+      'brand': brand,
+      'product': product,
+      'description': description,
+      'photos': photos,
+      'tags': tags,
+      'category': category,
+      'contributor': contributor,
+      'gmtCreate': gmtCreate,
+      'isDeleted': isDeleted,
+    };
   }
 
   @override
@@ -162,30 +179,64 @@ class ServingInfo {
 
   factory ServingInfo.fromMap(Map<String, dynamic> map) {
     return ServingInfo(
-      servingInfoId: map['serving_info_id'] as int?,
-      foodId: map['food_id'] as int,
-      servingSize: map['serving_size'] as int,
-      servingUnit: map['serving_unit'] as String,
-      energy: map['energy'] as double,
-      energyKCal: map['energy_kcal'] as double?,
-      protein: map['protein'] as double,
-      totalFat: map['total_fat'] as double,
-      totalCarbohydrate: map['total_carbohydrate'] as double,
-      sodium: map['sodium'] as double,
-      saturatedFat: map['saturated_fat'] as double?,
-      transFat: map['trans_fat'] as double?,
-      polyunsaturatedFat: map['polyunsaturated_fat'] as double?,
-      monounsaturatedFat: map['monounsaturated_fat'] as double?,
-      cholesterol: map['cholesterol'] as double?,
-      sugar: map['sugar'] as double?,
-      dietaryFiber: map['dietary_fiber'] as double?,
-      potassium: map['potassium'] as double?,
+      servingInfoId: map['serving_info_id'] ?? map['servingInfoId'],
+      foodId: map['food_id'] ?? map['foodId'],
+      servingSize: map['serving_size'] ?? map['servingSize'],
+      servingUnit: map['serving_unit'] ?? map['servingUnit'],
+      energy: (map['energy'] ?? 0.0).toDouble(),
+      energyKCal: (map['energy_kcal'] ?? map['energyKCal'])?.toDouble(),
+      protein: (map['protein'] ?? 0.0).toDouble(),
+      totalFat: (map['total_fat'] ?? map['totalFat'] ?? 0.0).toDouble(),
+      totalCarbohydrate:
+          (map['total_carbohydrate'] ?? map['totalCarbohydrate'] ?? 0.0)
+              .toDouble(),
+      sodium: (map['sodium'] ?? 0.0).toDouble(),
+      saturatedFat: (map['saturated_fat'] ?? map['saturatedFat'])?.toDouble(),
+      transFat: (map['trans_fat'] ?? map['transFat'])?.toDouble(),
+      polyunsaturatedFat:
+          (map['polyunsaturated_fat'] ?? map['polyunsaturatedFat'])?.toDouble(),
+      monounsaturatedFat:
+          (map['monounsaturated_fat'] ?? map['monounsaturatedFat'])?.toDouble(),
+      cholesterol: (map['cholesterol'] ?? map['cholesterol'])?.toDouble(),
+      sugar: (map['sugar'] ?? map['sugar'])?.toDouble(),
+      dietaryFiber: (map['dietary_fiber'] ?? map['dietaryFiber'])?.toDouble(),
+      potassium: (map['potassium'] ?? map['potassium'])?.toDouble(),
       contributor: map['contributor'] as String?,
-      gmtCreate: map['gmt_create'] as String?,
-      updateUser: map['update_user'] as String?,
-      gmtModified: map['gmt_modified'] as String?,
-      isDeleted: map['is_deleted'] == 0 ? false : true,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      updateUser: map['update_user'] ?? map['updateUser'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
+      isDeleted: (map['is_deleted'] == 0 || map['isDeleted'] == false)
+          ? false
+          : true,
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'servingInfoId': servingInfoId,
+      'foodId': foodId,
+      'servingSize': servingSize,
+      'servingUnit': servingUnit,
+      'energy': energy,
+      'energyKCal': energyKCal,
+      'protein': protein,
+      'totalFat': totalFat,
+      'totalCarbohydrate': totalCarbohydrate,
+      'sodium': sodium,
+      'saturatedFat': saturatedFat,
+      'transFat': transFat,
+      'polyunsaturatedFat': polyunsaturatedFat,
+      'monounsaturatedFat': monounsaturatedFat,
+      'cholesterol': cholesterol,
+      'sugar': sugar,
+      'dietaryFiber': dietaryFiber,
+      'potassium': potassium,
+      'contributor': contributor,
+      'gmtCreate': gmtCreate,
+      'updateUser': updateUser,
+      'gmtModified': gmtModified,
+      'isDeleted': isDeleted,
+    };
   }
 
   @override
@@ -240,16 +291,31 @@ class DailyFoodItem {
   // 用于从数据库行映射到 DailyFoodItem 对象的 fromMap 方法
   factory DailyFoodItem.fromMap(Map<String, dynamic> map) {
     return DailyFoodItem(
-      dailyFoodItemId: map['daily_food_item_id'] as int?,
-      userId: map['user_id'] as int,
+      dailyFoodItemId: map['daily_food_item_id'] ?? map['dailyFoodItemId'],
+      userId: map['user_id'] ?? map['userId'],
       date: map['date'] as String,
-      mealCategory: map['meal_category'] as String,
-      foodIntakeSize: map['food_intake_size'] as double,
-      foodId: map['food_id'] as int,
-      servingInfoId: map['serving_info_id'] as int,
-      gmtCreate: map['gmt_create'] as String?,
-      gmtModified: map['gmt_modified'] as String?,
+      mealCategory: map['meal_category'] ?? map['mealCategory'],
+      foodIntakeSize: (map['food_intake_size'] ?? map['foodIntakeSize'] ?? 0.0)
+          .toDouble(),
+      foodId: map['food_id'] ?? map['foodId'],
+      servingInfoId: map['serving_info_id'] ?? map['servingInfoId'],
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'dailyFoodItemId': dailyFoodItemId,
+      'userId': userId,
+      'date': date,
+      'mealCategory': mealCategory,
+      'foodIntakeSize': foodIntakeSize,
+      'foodId': foodId,
+      'servingInfoId': servingInfoId,
+      'gmtCreate': gmtCreate,
+      'gmtModified': gmtModified,
+    };
   }
 
   @override
@@ -293,13 +359,24 @@ class MealPhoto {
   // 用于从数据库行映射到 MealPhoto 对象的 fromMap 方法
   factory MealPhoto.fromMap(Map<String, dynamic> map) {
     return MealPhoto(
-      mealPhotoId: map['meal_photo_id'] as int?,
-      userId: map['user_id'] as int,
+      mealPhotoId: map['meal_photo_id'] ?? map['mealPhotoId'],
+      userId: map['user_id'] ?? map['userId'],
       date: map['date'] as String,
-      mealCategory: map['meal_category'] as String,
+      mealCategory: map['meal_category'] ?? map['mealCategory'],
       photos: map['photos'] as String,
-      gmtCreate: map['gmt_create'] as String,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'] ?? "",
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'mealPhotoId': mealPhotoId,
+      'userId': userId,
+      'date': date,
+      'mealCategory': mealCategory,
+      'photos': photos,
+      'gmtCreate': gmtCreate,
+    };
   }
 
   @override

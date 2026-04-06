@@ -14,6 +14,9 @@ public interface DiaryRepository extends JpaRepository<Diary, Long> {
     /** 日记列表（按时间倒序分页） */
     Page<Diary> findByUserIdOrderByDateDesc(Long userId, Pageable pageable);
 
+    List<Diary> findByUserIdAndDateBetweenOrderByDateAsc(Long userId, String startDate, String endDate);
+    List<Diary> findByUserIdAndDateBetweenOrderByDateDesc(Long userId, String startDate, String endDate);
+
     /** 日历视图：查询某月内有日记的所有日期（yyyy-MM-dd） */
     @Query("SELECT d.date FROM Diary d WHERE d.userId = :userId " +
            "AND d.date BETWEEN :startDate AND :endDate")

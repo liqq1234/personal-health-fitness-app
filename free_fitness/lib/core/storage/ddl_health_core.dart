@@ -8,7 +8,7 @@ class HealthCoreDdl {
 
   static const String ddlSteps =
       """
-    CREATE TABLE $tableNameSteps (
+    CREATE TABLE IF NOT EXISTS $tableNameSteps (
       steps_id    INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
       date        TEXT    NOT NULL UNIQUE,
       steps       INTEGER NOT NULL DEFAULT 0,
@@ -19,7 +19,7 @@ class HealthCoreDdl {
 
   static const String ddlSleep =
       """
-    CREATE TABLE $tableNameSleep (
+    CREATE TABLE IF NOT EXISTS $tableNameSleep (
       sleep_id        INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
       start_time      TEXT    NOT NULL,
       end_time        TEXT    NOT NULL,
@@ -31,7 +31,7 @@ class HealthCoreDdl {
 
   static const String ddlDiet =
       """
-    CREATE TABLE $tableNameDiet (
+    CREATE TABLE IF NOT EXISTS $tableNameDiet (
       diet_id     INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
       date        TEXT    NOT NULL,
       category    TEXT    NOT NULL,
@@ -44,14 +44,16 @@ class HealthCoreDdl {
 
   static const String ddlExerciseSession =
       """
-    CREATE TABLE $tableNameExerciseSession (
-      session_id  INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
-      start_time  TEXT    NOT NULL,
-      end_time    TEXT,
-      distance    REAL    DEFAULT 0,
-      steps       INTEGER DEFAULT 0,
-      path_points TEXT,
-      gmt_create  TEXT    NOT NULL
+    CREATE TABLE IF NOT EXISTS $tableNameExerciseSession (
+      session_id       INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+      start_time       TEXT    NOT NULL,
+      end_time         TEXT,
+      distance         REAL    DEFAULT 0,
+      steps            INTEGER DEFAULT 0,
+      path_points      TEXT,
+      calories         REAL    DEFAULT 0,
+      duration_seconds INTEGER DEFAULT 0,
+      gmt_create       TEXT    NOT NULL
     );
   """;
 }

@@ -86,7 +86,7 @@ class _TrainingExerciseState extends State<TrainingExercise> {
     });
 
     CusDataResult temp = await _searchExercise();
-    List<Exercise> newData = temp.data as List<Exercise>;
+    List<Exercise> newData = temp.data.cast<Exercise>();
 
     // 如果没有更多数据，则在底部显示
     if (newData.isEmpty) {
@@ -261,9 +261,27 @@ class _TrainingExerciseState extends State<TrainingExercise> {
             icon: const Icon(Icons.import_export),
             onPressed: clickExerciseImport,
           ),
+          // 清理重复数据
+          IconButton(
+            icon: const Icon(Icons.cleaning_services),
+            onPressed: () async {
+              int count = await _dbHelper.deduplicateExercises();
+              if (!mounted) return;
+              ToastUtils.showSuccess(
+                CusAL.of(context).deduplicateFinished(count),
+              );
+              setState(() {
+                exerciseItems.clear();
+                currentPage = 1;
+              });
+              _loadExerciseData();
+            },
+            tooltip: CusAL.of(context).deduplicateExercises,
+          ),
           // 新增单个动作
           IconButton(
             icon: const Icon(Icons.add),
+
             onPressed: () async {
               if (!mounted) return;
               final result = await Navigator.of(context).push(

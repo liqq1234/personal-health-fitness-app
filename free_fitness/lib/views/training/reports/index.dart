@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:fl_chart/fl_chart.dart';
 
 import '../../../core/constants/constants.dart';
 import '../../../core/storage/db_training_helper.dart';
@@ -150,13 +151,12 @@ class _TrainingReportsState extends State<TrainingReports> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 2,
       initialIndex: initialIndex,
       child: Scaffold(
         appBar: AppBar(
           bottom: const TabBar(
             tabs: [
-              Tab(icon: Icon(Icons.bar_chart)),
               Tab(icon: Icon(Icons.calendar_month)),
               Tab(icon: Icon(Icons.history)),
             ],
@@ -236,7 +236,6 @@ class _TrainingReportsState extends State<TrainingReports> {
             ? buildLoader(isLoading)
             : TabBarView(
                 children: [
-                  SingleChildScrollView(child: buildReportsView()),
                   SingleChildScrollView(child: buildHistoryView()),
                   SingleChildScrollView(child: buildRecentView()),
                 ],
@@ -277,14 +276,33 @@ class _TrainingReportsState extends State<TrainingReports> {
             0,
             (prevVal, tdl) => prevVal + tdl.totalRestTime,
           );
-          int totolPaused = data.fold(
-            0,
-            (prevVal, tdl) => prevVal + tdl.totolPausedTime,
-          );
           int totalTrained = data.fold(
             0,
             (prevVal, tdl) => prevVal + tdl.trainedDuration,
           );
+
+          // 计算加权训练量 (Duration * Weight)
+          double totalVolume = data.fold(0.0, (prevVal, tdl) {
+            double weight = switch (tdl.planLevel ?? (tdl.groupLevel ?? "初级")) {
+              "中级" => 1.5,
+              "高级" => 2.0,
+              _ => 1.0,
+            };
+            return prevVal + (tdl.trainedDuration / 60.0) * weight;
+          });
+
+          // 按天分组计算训练量用于图表
+          Map<String, double> dailyVolume = {};
+          for (var tdl in data) {
+            String date = tdl.trainedDate.split(" ")[0];
+            double weight = switch (tdl.planLevel ?? (tdl.groupLevel ?? "初级")) {
+              "中级" => 1.5,
+              "高级" => 2.0,
+              _ => 1.0,
+            };
+            double volume = (tdl.trainedDuration / 60.0) * weight;
+            dailyVolume[date] = (dailyVolume[date] ?? 0) + volume;
+          }
 
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -367,10 +385,10 @@ class _TrainingReportsState extends State<TrainingReports> {
                   ),
                   Column(
                     children: [
-                      Icon(Icons.alarm, size: CusIconSizes.iconMedium),
-                      Text(CusAL.of(context).trainedReportLabels('3')),
+                      Icon(Icons.fitness_center, size: CusIconSizes.iconMedium),
+                      const Text('加权训练量'),
                       Text(
-                        (totolPaused / 60).toStringAsFixed(0),
+                        totalVolume.toStringAsFixed(1),
                         style: TextStyle(
                           fontSize: CusFontSizes.flagMedium,
                           fontWeight: FontWeight.bold,
@@ -480,6 +498,29 @@ class _TrainingReportsState extends State<TrainingReports> {
                   ],
                 ),
               ),
+
+              /// 训练量变化趋势
+              SizedBox(height: 20.sp),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    '训练量变化趋势',
+                    style: TextStyle(
+                      fontSize: CusFontSizes.flagMedium,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ],
+              ),
+              SizedBox(height: 10.sp),
+              Container(
+                height: 200.sp,
+                padding: EdgeInsets.symmetric(horizontal: 20.sp),
+                child: _buildVolumeChart(dailyVolume),
+              ),
+              SizedBox(height: 30.sp),
             ],
           );
         } else if (snapshot.hasError) {
@@ -572,19 +613,98 @@ class _TrainingReportsState extends State<TrainingReports> {
           valueListenable: _selectedEvents,
           // 当_selectedEvents有变化时，这个builder才会被调用
           builder: (context, value, _) {
-            return ListView.builder(
-              // 和外层的滚动只保留一个
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount: value.length,
-              itemBuilder: (context, index) {
-                var log = value[index];
+            if (value.isEmpty) {
+              return const Center(child: Text('当日暂无训练记录'));
+            }
 
-                return Card(
-                  elevation: 2.sp,
-                  child: _buildTrainedDetailLogListTile(log),
-                );
-              },
+            // 计算当日汇总
+            int totalDuration = 0;
+            int totalCalories = 0;
+            int totalPause = 0;
+            int totalRest = 0;
+
+            for (var log in value) {
+              totalDuration += log.trainedDuration;
+              totalCalories += (log.consumption ?? 0);
+              totalPause += log.totolPausedTime;
+              totalRest += log.totalRestTime;
+            }
+
+            return Column(
+              children: [
+                // 汇总信息展示
+                Padding(
+                  padding: EdgeInsets.all(10.sp),
+                  child: Container(
+                    padding: EdgeInsets.all(12.sp),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).primaryColor.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(10.sp),
+                      border: Border.all(
+                        color: Theme.of(context).primaryColor.withOpacity(0.3),
+                      ),
+                    ),
+                    child: Column(
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildSummaryItem(
+                              context,
+                              "总时长",
+                              formatSeconds(totalDuration.toDouble()),
+                              Icons.timer_outlined,
+                            ),
+                            _buildSummaryItem(
+                              context,
+                              "总消耗",
+                              "$totalCalories kcal",
+                              Icons.local_fire_department_outlined,
+                            ),
+                          ],
+                        ),
+                        Divider(
+                          height: 20.sp,
+                          color: Theme.of(
+                            context,
+                          ).primaryColor.withOpacity(0.2),
+                        ),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceAround,
+                          children: [
+                            _buildSummaryItem(
+                              context,
+                              "暂停时长",
+                              formatSeconds(totalPause.toDouble()),
+                              Icons.pause_circle_outline,
+                            ),
+                            _buildSummaryItem(
+                              context,
+                              "休息时长",
+                              formatSeconds(totalRest.toDouble()),
+                              Icons.bedtime_outlined,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                ListView.builder(
+                  // 和外层的滚动只保留一个
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: value.length,
+                  itemBuilder: (context, index) {
+                    var log = value[index];
+
+                    return Card(
+                      elevation: 2.sp,
+                      child: _buildTrainedDetailLogListTile(log),
+                    );
+                  },
+                ),
+              ],
             );
           },
         ),
@@ -689,8 +809,9 @@ class _TrainingReportsState extends State<TrainingReports> {
                   Text(
                     CusAL.of(context).lastDayLabels(30),
                     style: TextStyle(
-                      fontSize: CusFontSizes.flagMediumBig,
+                      fontSize: CusFontSizes.pageTitle,
                       color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                   ...rst,
@@ -805,6 +926,98 @@ class _TrainingReportsState extends State<TrainingReports> {
         Expanded(flex: 2, child: Text(label)),
         Expanded(flex: 3, child: Text(value)),
       ],
+    );
+  }
+
+  Widget _buildVolumeChart(Map<String, double> dailyVolume) {
+    if (dailyVolume.isEmpty) return const Center(child: Text('暂无图表数据'));
+
+    // 取最近7天的有数据的日期排序
+    List<String> sortedDates = dailyVolume.keys.toList()..sort();
+    if (sortedDates.length > 7) {
+      sortedDates = sortedDates.sublist(sortedDates.length - 7);
+    }
+
+    return LineChart(
+      LineChartData(
+        gridData: const FlGridData(show: false),
+        titlesData: FlTitlesData(
+          bottomTitles: AxisTitles(
+            sideTitles: SideTitles(
+              showTitles: true,
+              getTitlesWidget: (value, meta) {
+                int index = value.toInt();
+                if (index >= 0 && index < sortedDates.length) {
+                  return Text(
+                    sortedDates[index].substring(5), // MM-DD
+                    style: TextStyle(fontSize: 10.sp),
+                  );
+                }
+                return const Text('');
+              },
+            ),
+          ),
+          leftTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: true, reservedSize: 30),
+          ),
+          topTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+          rightTitles: const AxisTitles(
+            sideTitles: SideTitles(showTitles: false),
+          ),
+        ),
+        borderData: FlBorderData(show: true),
+        lineBarsData: [
+          LineChartBarData(
+            spots: List.generate(sortedDates.length, (i) {
+              return FlSpot(i.toDouble(), dailyVolume[sortedDates[i]] ?? 0);
+            }),
+            isCurved: true,
+            color: Colors.blueAccent,
+            barWidth: 3,
+            dotData: const FlDotData(show: true),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSummaryItem(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
+    return Expanded(
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            icon,
+            size: 18.sp,
+            color: Theme.of(context).primaryColor.withOpacity(0.7),
+          ),
+          SizedBox(width: 8.sp),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: TextStyle(fontSize: 12.sp, color: Colors.grey[600]),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  fontWeight: FontWeight.bold,
+                  color: Theme.of(context).primaryColor,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

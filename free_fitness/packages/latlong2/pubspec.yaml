@@ -1,0 +1,10 @@
+name: latlong2
+description: A lite local shim for latlong2 to fix corrupted global cache issues.
+version: 0.9.1
+homepage: https://github.com/maRci002/latlong2
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  meta: ^1.11.0

@@ -269,7 +269,8 @@ class _OneChatScreenState extends State<OneChatScreen> {
           } else {
             csMsg?.content += crb.customReplyText ?? "";
             csMsg?.reasoningContent =
-                (csMsg!.reasoningContent!) + (crb.cusReasoningContent ?? "");
+                (csMsg?.reasoningContent ?? "") +
+                (crb.cusReasoningContent ?? "");
           }
 
           // 更新token信息

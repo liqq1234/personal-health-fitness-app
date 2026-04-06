@@ -1,7 +1,9 @@
+import '../constants/constants.dart';
+
 // 超时时间
 class HttpOptions {
-  // 请求地址，这个应该别处传来(使用时带上完整地址即可)
-  static const String baseUrl = 'http://127.0.0.1:8080/api/v1';
+  // 请求地址，这个应该从 constants.dart 统一获取
+  static const String baseUrl = apiBaseUrl;
   //单位时间是ms
   static const Duration connectTimeout = Duration(seconds: 60);
   static const Duration receiveTimeout = Duration(seconds: 10 * 60);

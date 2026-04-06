@@ -37,6 +37,12 @@ public class ExerciseSession {
     @Column(name = "path_points", columnDefinition = "MEDIUMTEXT")
     private String pathPoints;
 
+    @Column(name = "calories")
+    private Double calories;
+
+    @Column(name = "duration_seconds")
+    private Long durationSeconds;
+
     @Column(name = "gmt_create", nullable = false, length = 30)
     private String gmtCreate;
 }

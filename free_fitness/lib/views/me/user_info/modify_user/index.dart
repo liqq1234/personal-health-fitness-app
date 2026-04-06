@@ -6,11 +6,11 @@ import 'package:form_builder_validators/form_builder_validators.dart';
 import 'package:intl/intl.dart';
 
 import '../../../../core/constants/constants.dart';
-import '../../../../core/storage/db_user_helper.dart';
 import '../../../../core/utils/tool_widgets.dart';
 import '../../../../core/utils/tools.dart';
 import '../../../../models/cus_app_localizations.dart';
 import '../../../../models/user_state.dart';
+import '../../../../services/user_api_service.dart';
 
 class ModifyUserPage extends StatefulWidget {
   // 修改的时候可能会传用户信息，“我的”首页新增用户时就没有用户信息
@@ -23,7 +23,7 @@ class ModifyUserPage extends StatefulWidget {
 
 class _ModifyUserPageState extends State<ModifyUserPage> {
   final _formKey = GlobalKey<FormBuilderState>();
-  final DBUserHelper _userHelper = DBUserHelper();
+  final UserApiService _userApiService = UserApiService();
 
   // 保存中
   bool isLoading = false;
@@ -53,25 +53,32 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
 
       var tempUser = User(
         userName: temp['user_name'],
-        userCode: temp['user_code'],
-        gender: (temp['gendar'] as CusLabel).value,
+        gender: (temp['gender'] as CusLabel).value,
         dateOfBirth: temp['date_of_birth'] != null
-            ? DateFormat(constDateFormat)
-                .format(temp['date_of_birth'] as DateTime)
+            ? DateFormat(
+                constDateFormat,
+              ).format(temp['date_of_birth'] as DateTime)
             : null,
-        height: double.tryParse(temp['height']),
-        currentWeight: double.tryParse(temp['current_weight']),
-        rdaGoal: int.tryParse(temp['rda_goal']),
-        actionRestTime: int.tryParse(temp['action_rest_time']),
+        height: double.tryParse(temp['height'] ?? ""),
+        currentWeight: double.tryParse(temp['current_weight'] ?? ""),
+        rdaGoal: int.tryParse(temp['rda_goal'] ?? ""),
+        actionRestTime: int.tryParse(temp['action_rest_time'] ?? ""),
         description: temp['description'],
       );
 
       try {
+        // 用户信息现在始终同步到云端 (Always sync to Cloud)
         if (widget.user == null) {
-          await _userHelper.insertUserList([tempUser]);
+          await _userApiService.registerUser(tempUser);
         } else {
-          tempUser.userId = widget.user!.userId!;
-          await _userHelper.updateUser(tempUser);
+          // Use a default value or handle the null case gracefully
+          tempUser.userId = widget.user?.userId;
+          if (tempUser.userId != null) {
+            await _userApiService.updateUser(tempUser);
+          } else {
+            // If for some reason userId is still null, we might want to register instead or throw an error
+            await _userApiService.registerUser(tempUser);
+          }
         }
 
         if (!mounted) return;
@@ -107,10 +114,7 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
               : CusAL.of(context).eidtLabel(CusAL.of(context).userInfo),
         ),
         actions: [
-          IconButton(
-            onPressed: _saveUser,
-            icon: const Icon(Icons.save),
-          ),
+          IconButton(onPressed: _saveUser, icon: const Icon(Icons.save)),
         ],
       ),
       body: SingleChildScrollView(
@@ -120,11 +124,7 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
               padding: EdgeInsets.all(5.sp),
               child: FormBuilder(
                 key: _formKey,
-                child: Column(
-                  children: [
-                    ...buildFormDataColumns(),
-                  ],
-                ),
+                child: Column(children: [...buildFormDataColumns()]),
               ),
             ),
           ],
@@ -149,24 +149,14 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
         // keyboardType: TextInputType.text,
         validator: FormBuilderValidators.compose([
           FormBuilderValidators.required(
-            errorText: CusAL.of(context).requiredErrorText(
-              CusAL.of(context).userInfoLabels("0"),
-            ),
+            errorText: CusAL.of(
+              context,
+            ).requiredErrorText(CusAL.of(context).userInfoLabels("0")),
           ),
         ]),
       ),
-      FormBuilderTextField(
-        name: "user_code",
-        decoration: InputDecoration(
-          labelText: CusAL.of(context).userInfoLabels("1"),
-          // 设置透明底色
-          filled: true,
-          fillColor: Colors.transparent,
-        ),
-        enableSuggestions: true,
-      ),
       FormBuilderDropdown<CusLabel>(
-        name: "gendar",
+        name: "gender",
         initialValue: widget.user == null
             ? genderOptions.first
             : genderOptions.firstWhere(
@@ -180,11 +170,13 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
           fillColor: Colors.transparent,
         ),
         items: genderOptions
-            .map((unit) => DropdownMenuItem(
-                  alignment: AlignmentDirectional.center,
-                  value: unit,
-                  child: Text(showCusLableMapLabel(context, unit)),
-                ))
+            .map(
+              (unit) => DropdownMenuItem(
+                alignment: AlignmentDirectional.center,
+                value: unit,
+                child: Text(showCusLableMapLabel(context, unit)),
+              ),
+            )
             .toList(),
       ),
       FormBuilderDateTimePicker(
@@ -241,24 +233,7 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
           ),
         ],
       ),
-      Row(
-        children: [
-          Expanded(
-              child: _buildDoubleTextField(
-            'rda_goal',
-            CusAL.of(context).userGoalLabels("0"),
-            CusAL.of(context).unitLabels("2"),
-          )),
-          SizedBox(width: 10.sp),
-          Expanded(
-            child: _buildDoubleTextField(
-              'action_rest_time',
-              CusAL.of(context).userGoalLabels("1"),
-              CusAL.of(context).unitLabels("6"),
-            ),
-          ),
-        ],
-      ),
+
       FormBuilderTextField(
         name: "description",
         maxLines: 3,
@@ -292,7 +267,7 @@ class _ModifyUserPageState extends State<ModifyUserPage> {
       ),
       // 正则来只允许输入数字和小数点
       inputFormatters: [
-        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$'))
+        FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*$')),
       ],
       keyboardType: TextInputType.number,
       validator: validator,

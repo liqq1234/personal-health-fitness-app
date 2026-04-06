@@ -4,6 +4,7 @@ import com.freefitness.training.dto.*;
 import com.freefitness.training.entity.*;
 import com.freefitness.training.repository.*;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.util.stream.Collectors;
 /**
  * 训练模块服务：动作库 / 动作组 / 训练计划 / 训练日志 / 报告
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TrainingService {
@@ -28,6 +30,7 @@ public class TrainingService {
     private final PlanRepository planRepo;
     private final PlanHasGroupRepository planHasGroupRepo;
     private final TrainedDetailLogRepository logRepo;
+    private final TrainingScheduleRepository scheduleRepo;
 
     private static final DateTimeFormatter DT = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
     private static final DateTimeFormatter D  = DateTimeFormatter.ofPattern("yyyy-MM-dd");
@@ -129,13 +132,25 @@ public class TrainingService {
         return groupRepo.save(req);
     }
 
+    @Transactional(readOnly = true)
+    public List<GroupDetail> searchGroupWithActions(Long groupId, String groupName, String groupCategory, String groupLevel) {
+        List<TrainingGroup> groups = groupRepo.findAll();
+        return groups.stream()
+            .filter(g -> (groupId == null || g.getGroupId().equals(groupId)))
+            .filter(g -> (groupName == null || g.getGroupName().contains(groupName)))
+            .filter(g -> (groupCategory == null || g.getGroupCategory().equals(groupCategory)))
+            .filter(g -> (groupLevel == null || g.getGroupLevel().equals(groupLevel)))
+            .map(g -> getGroupDetail(g.getGroupId()))
+            .collect(Collectors.toList());
+    }
+
     @Transactional
-    public void deleteGroup(Long id) {
-        if (planHasGroupRepo.existsByGroupId(id)) {
-            throw new IllegalArgumentException("该动作组已被训练计划引用，无法删除");
+    public void deleteGroup(Long groupId) {
+        if (planHasGroupRepo.existsByGroupId(groupId)) {
+            throw new IllegalStateException("该动作组已被训练计划引用，无法删除");
         }
-        actionRepo.deleteByGroupId(id);
-        groupRepo.deleteById(id);
+        actionRepo.deleteByGroupId(groupId);
+        groupRepo.deleteById(groupId);
     }
 
     // ──────── 3.5 训练计划 CRUD ────────
@@ -210,6 +225,42 @@ public class TrainingService {
         return getPlanDetail(planId);
     }
 
+    @Transactional(readOnly = true)
+    public List<Object> searchPlanWithGroups(Long planId, String planName, String planCode, String planCategory, String planLevel) {
+        log.info("Executing searchPlanWithGroups: name={}, code={}", planName, planCode);
+        
+        // 此处暂时使用简单的列表过滤，如果数据量大考虑 Specification
+        List<Plan> plans = planRepo.findAll();
+        
+        return plans.stream()
+            .filter(p -> (planId == null || p.getPlanId().equals(planId)))
+            .filter(p -> (planName == null || p.getPlanName().contains(planName)))
+            .filter(p -> (planCode == null || p.getPlanCode().equals(planCode)))
+            .filter(p -> (planCategory == null || p.getPlanCategory().equals(planCategory)))
+            .filter(p -> (planLevel == null || p.getPlanLevel().equals(planLevel)))
+            .map(p -> {
+                Map<String, Object> map = new HashMap<>();
+                map.put("plan", p);
+                
+                // 将计划详情中的 days 转回到前端需要的 groups 扁平结构
+                PlanDetail detail = getPlanDetail(p.getPlanId());
+                List<Object> groups = detail.getDays().stream()
+                    .map(d -> {
+                        Map<String, Object> gMap = new HashMap<>();
+                        gMap.put("group", d.getGroup());
+                        // 前端需要的格式和 GroupDetail (VO) 已经极其接近
+                        // 但前端代码 data['groups'] 里取 e['actions']，
+                        // 注意后端 getGroupDetail(id) 返回的是 VO，其字段就是 actions
+                        gMap.put("actions", d.getGroup().getActions());
+                        return gMap;
+                    }).collect(Collectors.toList());
+                
+                map.put("groups", groups);
+                return map;
+            })
+            .collect(Collectors.toList());
+    }
+
     @Transactional
     public void deletePlan(Long planId) {
         planHasGroupRepo.deleteByPlanId(planId);
@@ -232,6 +283,45 @@ public class TrainingService {
         return logRepo.findByUserIdOrderByTrainedStartTimeDesc(userId, PageRequest.of(page, size));
     }
 
+    public List<TrainedDetailLog> getLogsRange(Long userId, String startDate, String endDate) {
+        return logRepo.findByUserIdAndDateRange(userId, startDate, endDate);
+    }
+
+    // ──────── 3.6.1 预训练排程 ────────
+
+    @Transactional
+    public TrainingSchedule createSchedule(TrainingSchedule req) {
+        req.setScheduleId(null);
+        req.setStatus("PENDING");
+        req.setGmtCreate(LocalDateTime.now().format(DT));
+        return scheduleRepo.save(req);
+    }
+
+    public List<TrainingSchedule> getSchedules(Long userId) {
+        return scheduleRepo.findByUserIdOrderByScheduledDateDescStartTimeDesc(userId);
+    }
+
+    public List<TrainingSchedule> getDailySchedules(Long userId, String date) {
+        return scheduleRepo.findByUserIdAndScheduledDate(userId, date);
+    }
+
+    @Transactional
+    public TrainingSchedule updateSchedule(Long id, TrainingSchedule req) {
+        TrainingSchedule existing = scheduleRepo.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("排程不存在：" + id));
+        if (req.getStatus() != null) existing.setStatus(req.getStatus());
+        if (req.getScheduledDate() != null) existing.setScheduledDate(req.getScheduledDate());
+        if (req.getStartTime() != null) existing.setStartTime(req.getStartTime());
+        if (req.getEndTime() != null) existing.setEndTime(req.getEndTime());
+        existing.setGmtModified(LocalDateTime.now().format(DT));
+        return scheduleRepo.save(existing);
+    }
+
+    @Transactional
+    public void deleteSchedule(Long id) {
+        scheduleRepo.deleteById(id);
+    }
+
     // ──────── 3.7 训练统计报告 ────────
 
     public TrainingReport getReport(Long userId, String period) {
@@ -251,6 +341,16 @@ public class TrainingService {
         double avgDuration = totalSessions == 0 ? 0
                 : Math.round(totalDuration / 60.0 / totalSessions * 10.0) / 10.0;
 
+        // 计算加权训练量
+        double totalVolume = logs.stream().mapToDouble(l -> {
+            double weight = switch (l.getPlanLevel() != null ? l.getPlanLevel() : (l.getGroupLevel() != null ? l.getGroupLevel() : "初级")) {
+                case "中级" -> 1.5;
+                case "高级" -> 2.0;
+                default   -> 1.0;
+            };
+            return (l.getTrainedDuration() / 60.0) * weight;
+        }).sum();
+
         // 最频繁分类
         String mostFrequent = logs.stream()
                 .filter(l -> l.getPlanCategory() != null)
@@ -260,6 +360,6 @@ public class TrainingService {
                 .map(Map.Entry::getKey)
                 .orElse("暂无数据");
 
-        return new TrainingReport(totalSessions, totalDuration, totalCalories, avgDuration, mostFrequent, period);
+        return new TrainingReport(totalSessions, totalDuration, totalCalories, avgDuration, totalVolume, mostFrequent, period);
     }
 }

@@ -10,8 +10,8 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: validate          # 生产环境用 validate，开发时可改为 update
-    show-sql: false
+      ddl-auto: update            # 自动根据实体类更新数据库表结构（添加缺少的列）
+    show-sql: true
     properties:
       hibernate:
         format_sql: true

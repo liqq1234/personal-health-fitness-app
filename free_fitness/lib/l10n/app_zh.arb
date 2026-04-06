@@ -1,5 +1,5 @@
 {
-    "appTitle": "自由健身",
+    "appTitle": "自由健康",
     "todaySteps": "今日步数",
 
     "report": "报告",
@@ -107,7 +107,17 @@
     },
 
     "exerciseImport":"导入动作JSON数据",
+    "deduplicateExercises": "清理重复动作",
+    "deduplicateFinished": "{count} 条重复数据已合并。",
+    "@deduplicateFinished": {
+      "placeholders": {
+        "count": {
+          "type": "int"
+        }
+      }
+    },
     "exerciseLabelNote":"从左到右依次为: 索引-编号-名称-级别",
+
     "exerciseImagePath":"选择json中图片公共文件夹",
 
     "exerciseDetail": "动作详情",
@@ -237,7 +247,7 @@
     "jsonFiles":"json文件列表:",
     "foodLabelNote":"从左到右为: 索引-代号-名称-能量(大卡)",
 
-    "rangeLabels": "{num, select, 0{昨天} 1{今天} 2{明天} 3{上周} 4{本周} other{其他} }",
+    "rangeLabels": "{num, select, 0{昨天} 1{今天} 2{明天} 3{上周} 4{本周} 5{本月} 6{上月} other{其他} }",
     "@rangeLabels": {
     "description": "几个常见的时间范围"
     },
@@ -407,7 +417,22 @@
     "loadEmbeddedExercise":"加载内置基础动作数据",
     "confirmLoadEmbeddedExercise":"是否加载内置基础动作？同名动作会被覆盖",
     "loadEmbeddedFood":"加载内置食物成分数据",
-    "confirmLoadEmbeddedFood":"是否加载内置食物成分？同名《中国食物成分标准》“食物代号”或者“品牌+产品”的食品会被覆盖"
-
-   
+    "confirmLoadEmbeddedFood":"是否加载内置食物成分？同名《中国食物成分标准》“食物代号”或者“品牌+产品”的食品会被覆盖",
+    "dietaryAdviceTitle": "饮食分析建议 (根据最近7天数据)",
+    "proteinDeficitAdvice": "【蛋白质摄入不足】建议多补充：鸡胸肉、瘦牛肉、鸡蛋、大豆制品或乳制品，以维持肌肉健康。",
+    "fiberDeficitAdvice": "【膳食纤维摄入不足】建议多补充：新鲜蔬菜（西兰花、菠菜）、水果、燕麦及全谷物，有助消化健康。",
+    "dietaryGoodAdvice": "【营养摄入均衡】您的饮食状态非常理想！请继续保持良好的饮食习惯。",
+    "healthAssessmentDetail": "今日健康达标详情",
+    "stepsStatus": "步数目标",
+    "trainingStatus": "训练计划",
+    "sleepStatus": "睡眠休息",
+    "dietAdviceStatus": "饮食建议",
+    "targetReached": "已达标",
+    "targetNotReached": "未达标",
+    "trainingCompleted": "已完成",
+    "trainingPending": "待执行",
+    "noTrainingScheduled": "今日无计划",
+    "sleepSufficient": "充足",
+    "sleepInsufficient": "不足",
+    "viewDietAdvice": "点击查看建议"
 }

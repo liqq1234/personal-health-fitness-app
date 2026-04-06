@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 
 import '../../../core/constants/constants.dart';
-import '../../../core/storage/db_user_helper.dart';
 import '../../../core/utils/tool_widgets.dart';
 import '../../../core/utils/tools.dart';
 import '../../../models/cus_app_localizations.dart';
 import '../../../models/user_state.dart';
+import '../../../core/dio_client/cus_http_client.dart';
 import 'modify_user/index.dart';
 
 class UserInfo extends StatefulWidget {
@@ -19,9 +19,7 @@ class UserInfo extends StatefulWidget {
 }
 
 class _UserInfoState extends State<UserInfo> {
-  final DBUserHelper _userHelper = DBUserHelper();
-
-  late User user;
+  User user = User(userName: "");
   // 用户头像路径
   String _avatarPath = "";
 
@@ -39,11 +37,32 @@ class _UserInfoState extends State<UserInfo> {
       isLoading = true;
     });
 
-    // 查询登录用户的信息一定会有的
-    var tempUser = (await _userHelper.queryUser(userId: CacheUser.userId))!;
+    User? tempUser;
+
+    // 1. 尝试从云端获取最新数据 (Try getting latest from Cloud)
+    try {
+      var response = await HttpUtils.get(
+        path: "/users/${CacheUser.userId}",
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        tempUser = User.fromMap(response['data']);
+      }
+    } catch (e) {
+      print("Fetch cloud user failed: $e");
+    }
+
     if (!mounted) return;
+    if (tempUser == null) {
+      // 如果获取失败，可以给个提示或者留空
+      setState(() {
+        isLoading = false;
+      });
+      return;
+    }
+
     setState(() {
-      user = tempUser;
+      user = tempUser!;
       if (tempUser.avatar != null) {
         _avatarPath = tempUser.avatar!;
       }
@@ -69,7 +88,7 @@ class _UserInfoState extends State<UserInfo> {
               });
             },
             icon: const Icon(Icons.edit),
-          )
+          ),
         ],
       ),
       body: isLoading
@@ -85,8 +104,9 @@ class _UserInfoState extends State<UserInfo> {
                       CircleAvatar(
                         maxRadius: 60.sp,
                         backgroundColor: Colors.transparent,
-                        backgroundImage:
-                            const AssetImage(defaultAvatarImageUrl),
+                        backgroundImage: const AssetImage(
+                          defaultAvatarImageUrl,
+                        ),
                         child: Container(
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
@@ -107,10 +127,6 @@ class _UserInfoState extends State<UserInfo> {
                       CusAL.of(context).userInfoLabels("0"),
                       user.userName,
                     ),
-                    _buildListItem(
-                      CusAL.of(context).userInfoLabels("1"),
-                      user.userCode ?? "",
-                    ),
                   ],
                 ),
                 Row(
@@ -119,7 +135,10 @@ class _UserInfoState extends State<UserInfo> {
                       CusAL.of(context).userInfoLabels("2"),
                       showCusLableMapLabel(
                         context,
-                        genderOptions.firstWhere((e) => e.value == user.gender),
+                        genderOptions.firstWhere(
+                          (e) => e.value == user.gender,
+                          orElse: () => genderOptions.first,
+                        ),
                       ),
                     ),
                     _buildListItem(
@@ -140,18 +159,7 @@ class _UserInfoState extends State<UserInfo> {
                     ),
                   ],
                 ),
-                Row(
-                  children: [
-                    _buildListItem(
-                      CusAL.of(context).userGoalLabels("0"),
-                      '${user.rdaGoal ?? ""} ${CusAL.of(context).unitLabels("2")}',
-                    ),
-                    _buildListItem(
-                      CusAL.of(context).userGoalLabels("1"),
-                      '${user.actionRestTime ?? ""} ${CusAL.of(context).unitLabels("6")}',
-                    ),
-                  ],
-                ),
+
                 Row(
                   children: [
                     _buildListItem(
@@ -167,10 +175,7 @@ class _UserInfoState extends State<UserInfo> {
 
   Widget _buildListItem(String title, String value) {
     return Expanded(
-      child: ListTile(
-        title: Text(title),
-        subtitle: Text(value),
-      ),
+      child: ListTile(title: Text(title), subtitle: Text(value)),
     );
   }
 }

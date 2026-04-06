@@ -50,7 +50,9 @@ public class UserService {
     public User updateUser(Long userId, UpdateUserRequest req) {
         User user = getUser(userId);
         if (req.getUserName()       != null) user.setUserName(req.getUserName());
+        if (req.getUserCode()       != null) user.setUserCode(req.getUserCode());
         if (req.getGender()         != null) user.setGender(req.getGender());
+        if (req.getAvatar()         != null) user.setAvatar(req.getAvatar());
         if (req.getDateOfBirth()    != null) user.setDateOfBirth(req.getDateOfBirth());
         if (req.getHeight()         != null) user.setHeight(req.getHeight());
         if (req.getHeightUnit()     != null) user.setHeightUnit(req.getHeightUnit());

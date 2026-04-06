@@ -33,9 +33,7 @@ class _TrainingSettingState extends State<TrainingSetting> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(CusAL.of(context).settingLabels('3')),
-      ),
+      appBar: AppBar(title: Text(CusAL.of(context).settingLabels('3'))),
       body: ListView(
         children: [
           _buildListItem(
@@ -60,6 +58,8 @@ class _TrainingSettingState extends State<TrainingSetting> {
   }
 
   Future _openActionRestTimeDialog() async {
+    // 每次打开弹窗前，先同步一下最新的休息间隔时间，避免之前操作的影响
+    _currentNumber = user.actionRestTime ?? 10;
     await showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -70,19 +70,21 @@ class _TrainingSettingState extends State<TrainingSetting> {
           ),
           content: StatefulBuilder(
             builder: (context, setState) {
-              return NumberPicker(
-                itemCount: 3,
-                minValue: 5,
-                maxValue: 60,
-                value: _currentNumber,
-                // itemHeight: 40,
-                // itemWidth: 40,
-                // axis: Axis.horizontal,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16.sp),
-                  border: Border.all(color: Theme.of(context).primaryColor),
+              return SizedBox(
+                height: 150.sp,
+                child: NumberPicker(
+                  itemCount: 3,
+                  minValue: 5,
+                  maxValue: 60,
+                  value: _currentNumber,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16.sp),
+                    border: Border.all(color: Theme.of(context).primaryColor),
+                  ),
+                  onChanged: (value) {
+                    setState(() => _currentNumber = value);
+                  },
                 ),
-                onChanged: (value) => setState(() => _currentNumber = value),
               );
             },
           ),
@@ -95,11 +97,33 @@ class _TrainingSettingState extends State<TrainingSetting> {
             ),
             TextButton(
               onPressed: () async {
-                setState(() {
-                  user.actionRestTime = _currentNumber;
-                });
+                if (user.userId == null) {
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(const SnackBar(content: Text("用户ID为空，无法更新")));
+                  return;
+                }
 
-                await _userHelper.updateUser(user);
+                // 先更新本地对象的值再请求
+                user.actionRestTime = _currentNumber;
+                int success = await _userHelper.updateUser(user);
+
+                if (success == 1) {
+                  setState(() {
+                    // 这里触发 UI 刷新即可
+                  });
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text("更新成功")));
+                  }
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text("更新失败，请重试")));
+                  }
+                }
 
                 if (!context.mounted) return;
                 Navigator.of(context).pop();

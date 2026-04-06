@@ -9,4 +9,7 @@ public interface DailyFoodItemRepository extends JpaRepository<DailyFoodItem, Lo
     List<DailyFoodItem> findByUserIdAndDateOrderByGmtCreateAsc(Long userId, String date);
     List<DailyFoodItem> findByUserIdAndDateAndMealCategoryOrderByGmtCreateAsc(
             Long userId, String date, String mealCategory);
+
+    List<DailyFoodItem> findByUserIdAndDateBetweenOrderByGmtCreateAsc(
+            Long userId, String startDate, String endDate);
 }

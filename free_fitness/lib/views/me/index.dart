@@ -10,14 +10,14 @@ import '../../core/storage/db_user_helper.dart';
 import '../../layout/themes/cus_font_size.dart';
 import '../../models/cus_app_localizations.dart';
 import '../../models/user_state.dart';
-import 'backup_and_restore/index.dart';
-import 'intake_goals/intake_target.dart';
+
 import 'more_settings/index.dart';
 import 'training_setting/index.dart';
 import 'user_info/index.dart';
 import 'user_info/modify_user/index.dart';
 import 'weight_change_record/index.dart';
 import '../auth/login_page.dart';
+import '../../core/utils/file_utils.dart';
 
 class UserAndSettings extends StatefulWidget {
   const UserAndSettings({super.key});
@@ -36,7 +36,7 @@ class _UserAndSettingsState extends State<UserAndSettings> {
   int currentUserId = 1;
 
   // ？？？登录用户信息，怎么在app中记录用户信息？缓存一个用户id每次都查？记住状态实时更新？……
-  late User userInfo;
+  User userInfo = User(userName: "");
 
   bool isLoading = false;
 
@@ -58,18 +58,33 @@ class _UserAndSettingsState extends State<UserAndSettings> {
       isLoading = true;
     });
 
-    // 查询登录用户的信息一定会有的
-    var tempUser = (await _userHelper.queryUser(userId: currentUserId))!;
+    User? tempUser;
+
+    // 1. 获取最新用户信息 (Only from Cloud now)
+    try {
+      tempUser = await _userHelper.queryUser(userId: currentUserId);
+    } catch (e) {
+      print("Fetch user info failed: $e");
+    }
+
+    if (tempUser == null) {
+      // 这里的处理逻辑可以根据需要调整
+      if (!mounted) return;
+      setState(() {
+        isLoading = false;
+      });
+      return;
+    }
+
+    String avatarPath = "";
+    if (tempUser.avatar != null && tempUser.avatar!.isNotEmpty) {
+      avatarPath = await FileUtils.getAbsolutePath(tempUser.avatar!);
+    }
 
     if (!mounted) return;
     setState(() {
-      userInfo = tempUser;
-      if (tempUser.avatar != null) {
-        _avatarPath = tempUser.avatar!;
-      } else {
-        // 不清空，切换用户可能还是之前用户的头像
-        _avatarPath = "";
-      }
+      userInfo = tempUser!;
+      _avatarPath = avatarPath;
       isLoading = false;
     });
   }
@@ -105,7 +120,10 @@ class _UserAndSettingsState extends State<UserAndSettings> {
           return AlertDialog(
             title: Text(CusAL.of(context).switchUser),
             content: DropdownButtonFormField<User>(
-              value: userList.firstWhere((e) => e.userId == currentUserId),
+              value: userList.firstWhere(
+                (e) => e.userId == currentUserId,
+                orElse: () => userList.first,
+              ),
               decoration: const InputDecoration(
                 // 设置透明底色
                 filled: true,
@@ -166,12 +184,22 @@ class _UserAndSettingsState extends State<UserAndSettings> {
     final pickedFile = await picker.pickImage(source: source);
     if (!mounted) return;
     if (pickedFile != null) {
+      // 1. 将文件剥离到本地文档目录的 avatars 文件夹下
+      String relativePath = await FileUtils.saveFileLocally(
+        File(pickedFile.path),
+        "avatars",
+      );
+
+      // 2. 更新状态，_avatarPath 为完整路径供 UI 显示
+      String absolutePath = await FileUtils.getAbsolutePath(relativePath);
+
       setState(() {
-        _avatarPath = pickedFile.path;
+        _avatarPath = absolutePath;
       });
 
+      // 3. 数据库只存相对路径
       var temp = userInfo;
-      temp.avatar = _avatarPath;
+      temp.avatar = relativePath;
       await _userHelper.updateUser(temp);
     }
   }
@@ -225,7 +253,11 @@ class _UserAndSettingsState extends State<UserAndSettings> {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ModifyUserPage()),
-              );
+              ).then((value) {
+                if (value == true) {
+                  _queryLoginedUserInfo();
+                }
+              });
             },
             icon: const Icon(Icons.add),
           ),
@@ -356,7 +388,7 @@ class _UserAndSettingsState extends State<UserAndSettings> {
                     color: Colors.green,
                   )
                 : Icon(
-                    Icons.bolt,
+                    Icons.question_mark_rounded,
                     size: CusIconSizes.iconNormal,
                     color: Theme.of(context).disabledColor,
                   ),
@@ -468,23 +500,6 @@ class _UserAndSettingsState extends State<UserAndSettings> {
       children: [
         Expanded(
           child: NewCusSettingCard(
-            leadingIcon: Icons.flag_circle_outlined,
-            title: CusAL.of(context).settingLabels('2'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => IntakeTargetPage(userInfo: userInfo),
-                ),
-              ).then((value) {
-                _queryLoginedUserInfo();
-              });
-            },
-          ),
-        ),
-        SizedBox(width: 12.sp),
-        Expanded(
-          child: NewCusSettingCard(
             leadingIcon: Icons.directions_run_rounded,
             title: CusAL.of(context).settingLabels('3'),
             onTap: () {
@@ -508,21 +523,6 @@ class _UserAndSettingsState extends State<UserAndSettings> {
       children: [
         Expanded(
           child: NewCusSettingCard(
-            leadingIcon: Icons.backup_outlined,
-            title: CusAL.of(context).settingLabels('4'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => const BackupAndRestore(),
-                ),
-              );
-            },
-          ),
-        ),
-        SizedBox(width: 12.sp),
-        Expanded(
-          child: NewCusSettingCard(
             leadingIcon: Icons.settings_rounded,
             title: CusAL.of(context).settingLabels('5'),
             onTap: () {
@@ -533,15 +533,6 @@ class _UserAndSettingsState extends State<UserAndSettings> {
             },
           ),
         ),
-        // Expanded(
-        //   child: NewCusSettingCard(
-        //     leadingIcon: Icons.privacy_tip_sharp,
-        //     title: '常见问题(tbd)',
-        //     onTap: () {
-        //       // 处理相应的点击事件
-        //     },
-        //   ),
-        // ),
       ],
     );
   }

@@ -13,6 +13,7 @@ public class TrainingReport {
     private long totalDurationSeconds;
     private int totalCalories;
     private double avgDurationMinutes;
+    private double totalVolume; // 权重计算后的训练量
     private String mostFrequentCategory;
     private String period;     // week / month / year
 }

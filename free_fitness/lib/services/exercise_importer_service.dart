@@ -29,11 +29,13 @@ class ExerciseImporterService {
     dynamic closeToast;
 
     try {
-      // 检查是否已经导入过
+      // 检查是否已经导入过当前语言的数据
+      String? lastLanguage = box.read(LocalStorageKey.exerciseLanguageImported);
       bool alreadyImported = _checkIfAlreadyImported();
-      if (alreadyImported) {
+
+      if (alreadyImported && lastLanguage == languageCode) {
         if (kDebugMode) {
-          print('基础动作数据已经导入过，跳过导入步骤');
+          print('基础动作数据($languageCode)已经导入过，跳过导入步骤');
         }
         return;
       }
@@ -61,8 +63,9 @@ class ExerciseImporterService {
       // 转换为Exercise对象列表并保存到数据库
       await _saveExercisesToDatabase(customExercises);
 
-      // 标记为已导入
+      // 标记为已导入及导入的语言
       _markAsImported();
+      box.write(LocalStorageKey.exerciseLanguageImported, languageCode);
 
       ToastUtils.showSuccess(
         '成功导入 ${customExercises.length} 条基础动作数据',
@@ -93,15 +96,11 @@ class ExerciseImporterService {
   Future<void> _saveExercisesToDatabase(
     List<CustomExercise> customExercises,
   ) async {
-    // 处理每个运动记录
-    for (var cusExercise in customExercises) {
-      // 将CustomExercise转换为Exercise
-      var exercise = Exercise(
-        // json文件的id就是代号
+    final List<Exercise> exercises = customExercises.map((cusExercise) {
+      return Exercise(
         exerciseCode: cusExercise.code ?? cusExercise.id ?? '',
         exerciseName: cusExercise.name ?? "",
         category: cusExercise.category ?? "",
-
         force: cusExercise.force,
         level: cusExercise.level,
         mechanic: cusExercise.mechanic,
@@ -109,14 +108,12 @@ class ExerciseImporterService {
         primaryMuscles: cusExercise.primaryMuscles?.join(","),
         secondaryMuscles: cusExercise.secondaryMuscles?.join(","),
         instructions: cusExercise.instructions?.join("\n\n"),
-        // 直接使用我github地址，使用网络图片
         images:
             cusExercise.images
                 ?.map((e) => imagePerfix + e)
                 .toList()
                 .join(",") ??
             placeholderImageUrl,
-        // 这几个原json没有的
         countingMode: cusExercise.countingMode ?? countingOptions.first.value,
         standardDuration:
             int.tryParse(cusExercise.standardDuration ?? "1") ?? 1,
@@ -125,16 +122,16 @@ class ExerciseImporterService {
         contributor: "system",
         gmtCreate: getCurrentDateTime(),
       );
+    }).toList();
 
-      try {
-        // 将基础动作数据插入数据库
-        await _dbHelper.insertExercise(exercise);
-      } catch (e) {
-        // 如果是唯一约束错误，则跳过
-        if (kDebugMode) {
-          print('导入基础动作数据时出错 (${cusExercise.id}): $e');
-        }
+    try {
+      // 使用批量插入方法，内部处理了冲突更新逻辑
+      await _dbHelper.insertExerciseList(exercises);
+    } catch (e) {
+      if (kDebugMode) {
+        print('批量导入基础动作数据时出错: $e');
       }
+      rethrow;
     }
   }
 }

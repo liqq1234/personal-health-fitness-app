@@ -97,7 +97,7 @@ class _SimpleExerciseListState extends State<SimpleExerciseList> {
       );
     }
 
-    List<Exercise> newData = temp.data as List<Exercise>;
+    List<Exercise> newData = temp.data.cast<Exercise>();
 
     // 如果没有更多数据，则在底部显示回弹一下
     if (!mounted) return;

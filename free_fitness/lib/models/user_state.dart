@@ -58,13 +58,20 @@ class User {
     };
   }
 
+  // API 序列化别名
+  Map<String, dynamic> toJson() => toMap();
+  factory User.fromJson(Map<String, dynamic> json) => User.fromMap(json);
+
   // 给表单初始化值得时候，需要转类型
   Map<String, dynamic> toStringMap() {
     return {
       "user_id": userId,
       "user_name": userName,
       "user_code": userCode,
-      "gender": gender,
+      "gender": genderOptions.firstWhere(
+        (e) => e.value == gender,
+        orElse: () => genderOptions.first,
+      ),
       "avatar": avatar,
       "password": password,
       "description": description,
@@ -85,24 +92,26 @@ class User {
   // 用于从数据库行映射到 ServingInfo 对象的 fromMap 方法
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
-      userId: map['user_id'] as int?,
-      userName: map['user_name'] as String,
-      userCode: map['user_code'] as String?,
-      gender: map['gender'] as String?,
-      avatar: map['avatar'] as String?,
-      password: map['password'] as String?,
-      description: map['description'] as String?,
-      dateOfBirth: map['date_of_birth'] as String?,
-      height: map['height'] as double?,
-      heightUnit: map['height_unit'] as String?,
-      currentWeight: map['current_weight'] as double?,
-      targetWeight: map['target_weight'] as double?,
-      weightUnit: map['weight_unit'] as String?,
-      rdaGoal: map['rda_goal'] as int?,
-      proteinGoal: map['protein_goal'] as double?,
-      fatGoal: map['fat_goal'] as double?,
-      choGoal: map['cho_goal'] as double?,
-      actionRestTime: map['action_rest_time'] as int?,
+      userId: (map['user_id'] ?? map['userId']) as int?,
+      userName: (map['user_name'] ?? map['userName']) as String,
+      userCode: (map['user_code'] ?? map['userCode']) as String?,
+      gender: (map['gender'] ?? map['gender']) as String?,
+      avatar: (map['avatar'] ?? map['avatar']) as String?,
+      password: (map['password'] ?? map['password']) as String?,
+      description: (map['description'] ?? map['description']) as String?,
+      dateOfBirth: (map['date_of_birth'] ?? map['dateOfBirth']) as String?,
+      height: (map['height'] ?? map['height'])?.toDouble(),
+      heightUnit: (map['height_unit'] ?? map['heightUnit']) as String?,
+      currentWeight: (map['current_weight'] ?? map['currentWeight'])
+          ?.toDouble(),
+      targetWeight: (map['target_weight'] ?? map['targetWeight'])?.toDouble(),
+      weightUnit: (map['weight_unit'] ?? map['weightUnit']) as String?,
+      rdaGoal: (map['rda_goal'] ?? map['rdaGoal']) as int?,
+      proteinGoal: (map['protein_goal'] ?? map['proteinGoal'])?.toDouble(),
+      fatGoal: (map['fat_goal'] ?? map['fatGoal'])?.toDouble(),
+      choGoal: (map['cho_goal'] ?? map['choGoal'])?.toDouble(),
+      actionRestTime:
+          (map['action_rest_time'] ?? map['actionRestTime']) as int?,
     );
   }
 
@@ -149,15 +158,21 @@ class IntakeDailyGoal {
     };
   }
 
+  Map<String, dynamic> toJson() => toMap();
+  factory IntakeDailyGoal.fromJson(Map<String, dynamic> json) =>
+      IntakeDailyGoal.fromMap(json);
+
   factory IntakeDailyGoal.fromMap(Map<String, dynamic> map) {
     return IntakeDailyGoal(
-      intakeDailyGoalId: map["intake_daily_goal_id"] as int?,
-      userId: map["user_id"] as int,
-      dayOfWeek: map["day_of_week"] as String,
-      rdaDailyGoal: map["rda_daily_goal"] as int,
-      proteinDailyGoal: map["protein_daily_goal"] as double,
-      fatDailyGoal: map["fat_daily_goal"] as double,
-      choDailyGoal: map["cho_daily_goal"] as double,
+      intakeDailyGoalId:
+          (map["intake_daily_goal_id"] ?? map["intakeDailyGoalId"]) as int?,
+      userId: (map["user_id"] ?? map["userId"]) as int,
+      dayOfWeek: (map["day_of_week"] ?? map["dayOfWeek"]) as String,
+      rdaDailyGoal: (map["rda_daily_goal"] ?? map["rdaDailyGoal"]) as int,
+      proteinDailyGoal: (map["protein_daily_goal"] ?? map["proteinDailyGoal"])
+          ?.toDouble(),
+      fatDailyGoal: (map["fat_daily_goal"] ?? map["fatDailyGoal"])?.toDouble(),
+      choDailyGoal: (map["cho_daily_goal"] ?? map["choDailyGoal"])?.toDouble(),
     );
   }
 
@@ -203,17 +218,21 @@ class WeightTrend {
     };
   }
 
+  Map<String, dynamic> toJson() => toMap();
+  factory WeightTrend.fromJson(Map<String, dynamic> json) =>
+      WeightTrend.fromMap(json);
+
   // 用于从数据库行映射到 ServingInfo 对象的 fromMap 方法
   factory WeightTrend.fromMap(Map<String, dynamic> map) {
     return WeightTrend(
-      weightTrendId: map['weight_trend_id'] as int?,
-      userId: map['user_id'] as int,
-      weight: map['weight'] as double,
-      weightUnit: map['weight_unit'] as String,
-      height: map['height'] as double,
-      heightUnit: map['height_unit'] as String,
-      bmi: map['bmi'] as double,
-      gmtCreate: map['gmt_create'] as String,
+      weightTrendId: (map['weight_trend_id'] ?? map['weightTrendId']) as int?,
+      userId: (map['user_id'] ?? map['userId']) as int,
+      weight: (map['weight'] ?? map['weight'])?.toDouble(),
+      weightUnit: (map['weight_unit'] ?? map['weightUnit']) as String,
+      height: (map['height'] ?? map['height'])?.toDouble(),
+      heightUnit: (map['height_unit'] ?? map['heightUnit']) as String,
+      bmi: (map['bmi'] ?? map['bmi'])?.toDouble(),
+      gmtCreate: (map['gmt_create'] ?? map['gmtCreate']) as String,
     );
   }
 

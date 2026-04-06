@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,7 +22,8 @@ import java.util.Map;
 /**
  * 用户接口：个人信息 / 头像 / 体重趋势 / 每日摄入目标
  */
-@Tag(name = "用户", description = "用户信息管理、体重趋势、摄入目标")
+@Slf4j
+@Tag(name = "用户管理", description = "基本信息 / 体重记录 / 目标设定 / 头像上传")
 @RestController
 @RequestMapping("/api/v1/users")
 @RequiredArgsConstructor

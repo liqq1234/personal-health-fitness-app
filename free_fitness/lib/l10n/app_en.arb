@@ -1,5 +1,5 @@
 {
-  "appTitle": "Free Fitness",
+  "appTitle": "Free Health",
   "todaySteps": "Today's Steps",
 
   "report": "Reports",
@@ -108,7 +108,17 @@
   },
 
   "exerciseImport":"Import Exercise Json",
+  "deduplicateExercises": "Clean up duplicate exercises",
+  "deduplicateFinished": "{count} duplicate records merged.",
+  "@deduplicateFinished": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
   "exerciseLabelNote":"LTR: index - code - name - level",
+
   "exerciseImagePath":"Select image public folder",
 
   "exerciseDetail": "Exercise Detail",
@@ -245,7 +255,7 @@
   "jsonFiles":"Json Files:",
   "foodLabelNote":"LTR: index - code - name - energy(kcal)",
 
-  "rangeLabels": "{num, select, 0{Yesterday} 1{Today} 2{Tomorrow} 3{LastWeek} 4{ThisWeek} other{Other} }",
+  "rangeLabels": "{num, select, 0{Yesterday} 1{Today} 2{Tomorrow} 3{LastWeek} 4{ThisWeek} 5{ThisMonth} 6{LastMonth} other{Other} }",
   "@rangeLabels": {
   "description": "几个常见的时间范围"
   },
@@ -426,7 +436,22 @@
   "loadEmbeddedExercise":"Load embedded exercise",
   "confirmLoadEmbeddedExercise":"Load embedded exercise? This will overwrite duplicates.",
   "loadEmbeddedFood":"Load embedded Food",
-  "confirmLoadEmbeddedFood":"Load embedded food? This will overwrite duplicates."
-
-
+  "confirmLoadEmbeddedFood":"Load embedded food? This will overwrite duplicates.",
+  "dietaryAdviceTitle": "Dietary Analysis (Last 7 Days)",
+  "proteinDeficitAdvice": "[Low Protein] Consider adding: chicken breast, lean beef, eggs, soy products, or dairy to support muscle health.",
+  "fiberDeficitAdvice": "[Low Fiber] Consider adding: fresh vegetables (broccoli, spinach), fruits, oats, and whole grains for digestive health.",
+  "dietaryGoodAdvice": "[Balanced Intake] Your nutrient levels look great! Keep up the good eating habits.",
+  "healthAssessmentDetail": "Today's Health Assessment",
+  "stepsStatus": "Steps Goal",
+  "trainingStatus": "Training Plan",
+  "sleepStatus": "Sleep Check",
+  "dietAdviceStatus": "Dietary Advice",
+  "targetReached": "Reached",
+  "targetNotReached": "Not Reached",
+  "trainingCompleted": "Completed",
+  "trainingPending": "Pending",
+  "noTrainingScheduled": "No Plan Today",
+  "sleepSufficient": "Sufficient",
+  "sleepInsufficient": "Insufficient",
+  "viewDietAdvice": "View Advice"
 }

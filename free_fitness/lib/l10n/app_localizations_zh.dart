@@ -9,7 +9,7 @@ class AppLocalizationsZh extends AppLocalizations {
   AppLocalizationsZh([String locale = 'zh']) : super(locale);
 
   @override
-  String get appTitle => '自由健身';
+  String get appTitle => '自由健康';
 
   @override
   String get todaySteps => '今日步数';
@@ -298,6 +298,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get exerciseImport => '导入动作JSON数据';
+
+  @override
+  String get deduplicateExercises => '清理重复动作';
+
+  @override
+  String deduplicateFinished(int count) {
+    return '$count 条重复数据已合并。';
+  }
 
   @override
   String get exerciseLabelNote => '从左到右依次为: 索引-编号-名称-级别';
@@ -642,6 +650,8 @@ class AppLocalizationsZh extends AppLocalizations {
       '2': '明天',
       '3': '上周',
       '4': '本周',
+      '5': '本月',
+      '6': '上月',
       'other': '其他',
     });
     return '$_temp0';
@@ -1095,4 +1105,57 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get confirmLoadEmbeddedFood =>
       '是否加载内置食物成分？同名《中国食物成分标准》“食物代号”或者“品牌+产品”的食品会被覆盖';
+
+  @override
+  String get dietaryAdviceTitle => '饮食分析建议 (根据最近7天数据)';
+
+  @override
+  String get proteinDeficitAdvice =>
+      '【蛋白质摄入不足】建议多补充：鸡胸肉、瘦牛肉、鸡蛋、大豆制品或乳制品，以维持肌肉健康。';
+
+  @override
+  String get fiberDeficitAdvice =>
+      '【膳食纤维摄入不足】建议多补充：新鲜蔬菜（西兰花、菠菜）、水果、燕麦及全谷物，有助消化健康。';
+
+  @override
+  String get dietaryGoodAdvice => '【营养摄入均衡】您的饮食状态非常理想！请继续保持良好的饮食习惯。';
+
+  @override
+  String get healthAssessmentDetail => '今日健康达标详情';
+
+  @override
+  String get stepsStatus => '步数目标';
+
+  @override
+  String get trainingStatus => '训练计划';
+
+  @override
+  String get sleepStatus => '睡眠休息';
+
+  @override
+  String get dietAdviceStatus => '饮食建议';
+
+  @override
+  String get targetReached => '已达标';
+
+  @override
+  String get targetNotReached => '未达标';
+
+  @override
+  String get trainingCompleted => '已完成';
+
+  @override
+  String get trainingPending => '待执行';
+
+  @override
+  String get noTrainingScheduled => '今日无计划';
+
+  @override
+  String get sleepSufficient => '充足';
+
+  @override
+  String get sleepInsufficient => '不足';
+
+  @override
+  String get viewDietAdvice => '点击查看建议';
 }

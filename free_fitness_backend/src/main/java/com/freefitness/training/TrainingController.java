@@ -6,6 +6,7 @@ import com.freefitness.training.entity.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -15,6 +16,7 @@ import java.util.List;
 /**
  * 运动训练接口
  */
+@Slf4j
 @Tag(name = "运动训练", description = "动作库 / 动作组 / 训练计划 / 训练日志 / 统计报告")
 @RestController
 @RequestMapping("/api/v1/training")
@@ -34,6 +36,17 @@ public class TrainingController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
         return Result.success(trainingService.searchExercises(category, level, keyword, page, size));
+    }
+
+    @Operation(summary = "搜索动作库（与 /exercises 相同，适配前端路径）")
+    @GetMapping("/exercises/search")
+    public Result<Page<Exercise>> searchExercisesByKeyword(
+            @RequestParam(required = false) String category,
+            @RequestParam(required = false) String level,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(defaultValue = "1")  int page, // 适配前端从1开始的页码
+            @RequestParam(defaultValue = "10") int pageSize) {
+        return Result.success(trainingService.searchExercises(category, level, keyword, page - 1, pageSize));
     }
 
     @Operation(summary = "查询单个动作详情")
@@ -90,6 +103,16 @@ public class TrainingController {
         return Result.success(trainingService.searchGroups(category, level, keyword, page, size));
     }
 
+    @Operation(summary = "根据条件复杂查询动作组列表（含详情，适配前端）")
+    @GetMapping("/groups/search")
+    public Result<List<GroupDetail>> searchGroupsWithActions(
+            @RequestParam(required = false) Long groupId,
+            @RequestParam(required = false) String groupName,
+            @RequestParam(required = false) String groupCategory,
+            @RequestParam(required = false) String groupLevel) {
+        return Result.success(trainingService.searchGroupWithActions(groupId, groupName, groupCategory, groupLevel));
+    }
+
     @Operation(summary = "查询动作组详情（含嵌套 Action 列表）")
     @GetMapping("/groups/{groupId}")
     public Result<GroupDetail> getGroupDetail(@PathVariable Long groupId) {
@@ -136,6 +159,18 @@ public class TrainingController {
         return Result.success(trainingService.getPlanDetail(planId));
     }
 
+    @Operation(summary = "根据条件复杂查询训练计划列表（含详情）")
+    @GetMapping("/plans/search")
+    public Result<List<Object>> searchPlanWithGroups(
+            @RequestParam(required = false) Long planId,
+            @RequestParam(required = false) String planName,
+            @RequestParam(required = false) String planCode,
+            @RequestParam(required = false) String planCategory,
+            @RequestParam(required = false) String planLevel) {
+        log.info("Searching plans with details: id={}, name={}", planId, planName);
+        return Result.success(trainingService.searchPlanWithGroups(planId, planName, planCode, planCategory, planLevel));
+    }
+
     @Operation(summary = "创建训练计划（含每天动作组分配）")
     @PostMapping("/plans")
     public Result<PlanDetail> createPlan(@RequestBody PlanRequest req) {
@@ -172,6 +207,15 @@ public class TrainingController {
             @RequestParam(defaultValue = "0")  int page,
             @RequestParam(defaultValue = "20") int size) {
         return Result.success(trainingService.getLogs(userId, page, size));
+    }
+
+    @Operation(summary = "按日期范围查询训练日志详情")
+    @GetMapping("/logs/range")
+    public Result<List<TrainedDetailLog>> getLogsRange(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam String startDate,
+            @RequestParam String endDate) {
+        return Result.success(trainingService.getLogsRange(userId, startDate, endDate));
     }
 
     // ──────── 3.7 训练报告 ────────

@@ -58,31 +58,56 @@ class Exercise {
     };
   }
 
-// 用于从数据库行映射到 Exercise 对象的 fromMap 方法
+  // 用于从数据库行映射到 Exercise 对象的 fromMap 方法
   factory Exercise.fromMap(Map<String, dynamic> map) {
     return Exercise(
-      exerciseId: map['exercise_id'] as int?,
-      exerciseCode: map['exercise_code'] as String,
-      exerciseName: map['exercise_name'] as String,
+      exerciseId: map['exercise_id'] ?? map['exerciseId'],
+      exerciseCode: (map['exercise_code'] ?? map['exerciseCode']) as String,
+      exerciseName: (map['exercise_name'] ?? map['exerciseName']) as String,
       force: map['force'] as String?,
       level: map['level'] as String?,
       mechanic: map['mechanic'] as String?,
       equipment: map['equipment'] as String?,
-      countingMode: map['counting_mode'] as String,
-      // ？？？明明sql语句设置了默认值，但是不传还是null
-      standardDuration: map['standard_duration'] as int? ?? 1,
+      countingMode: (map['counting_mode'] ?? map['countingMode']) as String,
+      standardDuration:
+          map['standard_duration'] ?? map['standardDuration'] ?? 1,
       instructions: map['instructions'] as String?,
-      ttsNotes: map['tts_notes'] as String?,
+      ttsNotes: map['tts_notes'] ?? map['ttsNotes'] as String?,
       category: map['category'] as String,
-      primaryMuscles: map['primary_muscles'] as String?,
-      secondaryMuscles: map['secondary_muscles'] as String?,
+      primaryMuscles:
+          map['primary_muscles'] ?? map['primaryMuscles'] as String?,
+      secondaryMuscles:
+          map['secondary_muscles'] ?? map['secondaryMuscles'] as String?,
       images: map['images'] as String?,
-      // ？？？明明sql语句设置了默认值，但是不传还是null
-      isCustom: bool.tryParse(map['is_custom'].toString()) ?? false,
+      isCustom: (map['is_custom'] == 1 || map['isCustom'] == true),
       contributor: map['contributor'] as String?,
-      gmtCreate: map['gmt_create'] as String?,
-      gmtModified: map['gmt_modified'] as String?,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'exerciseId': exerciseId,
+      'exerciseCode': exerciseCode,
+      'exerciseName': exerciseName,
+      'force': force,
+      'level': level,
+      'mechanic': mechanic,
+      'equipment': equipment,
+      'countingMode': countingMode,
+      'standardDuration': standardDuration,
+      'instructions': instructions,
+      'ttsNotes': ttsNotes,
+      'category': category,
+      'primaryMuscles': primaryMuscles,
+      'secondaryMuscles': secondaryMuscles,
+      'images': images,
+      'isCustom': isCustom,
+      'contributor': contributor,
+      'gmtCreate': gmtCreate,
+      'gmtModified': gmtModified,
+    };
   }
 
   // 重写 toString 方法
@@ -128,13 +153,25 @@ class TrainingAction {
 
   factory TrainingAction.fromMap(Map<String, dynamic> map) {
     return TrainingAction(
-      actionId: map['action_id'] as int?,
-      groupId: map['group_id'] as int,
-      exerciseId: map['exercise_id'] as int,
+      actionId: map['action_id'] ?? map['actionId'],
+      groupId: map['group_id'] ?? map['groupId'],
+      exerciseId: map['exercise_id'] ?? map['exerciseId'],
       frequency: map['frequency'] as int?,
       duration: map['duration'] as int?,
-      equipmentWeight: map['equipment_weight'] as double?,
+      equipmentWeight: (map['equipment_weight'] ?? map['equipmentWeight'])
+          ?.toDouble(),
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'actionId': actionId,
+      'groupId': groupId,
+      'exerciseId': exerciseId,
+      'frequency': frequency,
+      'duration': duration,
+      'equipmentWeight': equipmentWeight,
+    };
   }
 
   @override
@@ -184,17 +221,32 @@ class TrainingGroup {
 
   factory TrainingGroup.fromMap(Map<String, dynamic> map) {
     return TrainingGroup(
-      groupId: map['group_id'] as int?,
-      groupName: map['group_name'] as String,
-      groupCategory: map['group_category'] as String,
-      groupLevel: map['group_level'] as String,
+      groupId: map['group_id'] ?? map['groupId'],
+      groupName: (map['group_name'] ?? map['groupName']) as String,
+      groupCategory: (map['group_category'] ?? map['groupCategory']) as String,
+      groupLevel: (map['group_level'] ?? map['groupLevel']) as String,
       consumption: map['consumption'] as int?,
-      timeSpent: map['time_spent'] as int?,
+      timeSpent: map['time_spent'] ?? map['timeSpent'] as int?,
       description: map['description'] as String?,
       contributor: map['contributor'] as String?,
-      gmtCreate: map['gmt_create'] as String?,
-      gmtModified: map['gmt_modified'] as String?,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'groupId': groupId,
+      'groupName': groupName,
+      'groupCategory': groupCategory,
+      'groupLevel': groupLevel,
+      'consumption': consumption,
+      'timeSpent': timeSpent,
+      'description': description,
+      'contributor': contributor,
+      'gmtCreate': gmtCreate,
+      'gmtModified': gmtModified,
+    };
   }
 
   @override
@@ -244,17 +296,32 @@ class TrainingPlan {
 
   factory TrainingPlan.fromMap(Map<String, dynamic> map) {
     return TrainingPlan(
-      planId: map['plan_id'] as int?,
-      planCode: map['plan_code'] as String,
-      planName: map['plan_name'] as String,
-      planCategory: map['plan_category'] as String,
-      planLevel: map['plan_level'] as String,
-      planPeriod: map['plan_period'] as int? ?? 0,
+      planId: map['plan_id'] ?? map['planId'],
+      planCode: (map['plan_code'] ?? map['planCode']) as String,
+      planName: (map['plan_name'] ?? map['planName']) as String,
+      planCategory: (map['plan_category'] ?? map['planCategory']) as String,
+      planLevel: (map['plan_level'] ?? map['planLevel']) as String,
+      planPeriod: map['plan_period'] ?? map['planPeriod'] ?? 0,
       description: map['description'] as String?,
       contributor: map['contributor'] as String?,
-      gmtCreate: map['gmt_create'] as String?,
-      gmtModified: map['gmt_modified'] as String?,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'planId': planId,
+      'planCode': planCode,
+      'planName': planName,
+      'planCategory': planCategory,
+      'planLevel': planLevel,
+      'planPeriod': planPeriod,
+      'description': description,
+      'contributor': contributor,
+      'gmtCreate': gmtCreate,
+      'gmtModified': gmtModified,
+    };
   }
 
   @override
@@ -288,11 +355,20 @@ class PlanHasGroup {
 
   factory PlanHasGroup.fromMap(Map<String, dynamic> map) {
     return PlanHasGroup(
-      planHasGroupId: map['plan_has_group_id'] as int?,
-      planId: map['plan_id'] as int,
-      dayNumber: map['day_number'] as int,
-      groupId: map['group_id'] as int,
+      planHasGroupId: map['plan_has_group_id'] ?? map['planHasGroupId'],
+      planId: map['plan_id'] ?? map['planId'],
+      dayNumber: map['day_number'] ?? map['dayNumber'],
+      groupId: map['group_id'] ?? map['groupId'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'planHasGroupId': planHasGroupId,
+      'planId': planId,
+      'dayNumber': dayNumber,
+      'groupId': groupId,
+    };
   }
 
   @override
@@ -355,26 +431,50 @@ class TrainedDetailLog {
     };
   }
 
-// 用于从数据库行映射到 ServingInfo 对象的 fromMap 方法
+  // 用于从数据库行映射到 ServingInfo 对象的 fromMap 方法
   factory TrainedDetailLog.fromMap(Map<String, dynamic> map) {
     return TrainedDetailLog(
-      trainedDetailLogId: map['trained_detail_log_id'] as int?,
-      trainedDate: map['trained_date'] as String,
-      userId: map['user_id'] as int,
-      planName: map['plan_name'] as String?,
-      planCategory: map['plan_category'] as String?,
-      planLevel: map['plan_level'] as String?,
-      dayNumber: map['day_number'] as int?,
-      groupName: map['group_name'] as String?,
-      groupCategory: map['group_category'] as String?,
-      groupLevel: map['group_level'] as String?,
+      trainedDetailLogId:
+          map['trained_detail_log_id'] ?? map['trainedDetailLogId'],
+      trainedDate: (map['trained_date'] ?? map['trainedDate']) as String,
+      userId: map['user_id'] ?? map['userId'],
+      planName: (map['plan_name'] ?? map['planName']) as String?,
+      planCategory: (map['plan_category'] ?? map['planCategory']) as String?,
+      planLevel: (map['plan_level'] ?? map['planLevel']) as String?,
+      dayNumber: map['day_number'] ?? map['dayNumber'],
+      groupName: (map['group_name'] ?? map['groupName']) as String?,
+      groupCategory: (map['group_category'] ?? map['groupCategory']) as String?,
+      groupLevel: (map['group_level'] ?? map['groupLevel']) as String?,
       consumption: map['consumption'] as int?,
-      trainedStartTime: map['trained_start_time'] as String,
-      trainedEndTime: map['trained_end_time'] as String,
-      trainedDuration: map['trained_duration'] as int,
-      totolPausedTime: map['totol_paused_time'] as int,
-      totalRestTime: map['total_rest_time'] as int,
+      trainedStartTime:
+          (map['trained_start_time'] ?? map['trainedStartTime']) as String,
+      trainedEndTime:
+          (map['trained_end_time'] ?? map['trainedEndTime']) as String,
+      trainedDuration: map['trained_duration'] ?? map['trainedDuration'],
+      totolPausedTime: map['totol_paused_time'] ?? map['totolPausedTime'],
+      totalRestTime: map['total_rest_time'] ?? map['totalRestTime'],
     );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'trainedDetailLogId': trainedDetailLogId,
+      'trainedDate': trainedDate,
+      'userId': userId,
+      'planName': planName,
+      'planCategory': planCategory,
+      'planLevel': planLevel,
+      'dayNumber': dayNumber,
+      'groupName': groupName,
+      'groupCategory': groupCategory,
+      'groupLevel': groupLevel,
+      'consumption': consumption,
+      'trainedStartTime': trainedStartTime,
+      'trainedEndTime': trainedEndTime,
+      'trainedDuration': trainedDuration,
+      'totolPausedTime': totolPausedTime,
+      'totalRestTime': totalRestTime,
+    };
   }
 
   // 重写 toString 方法
@@ -457,5 +557,128 @@ class ActionPractice {
     PlanWithGroups {
       plan: $plan, groupDetailList: $groupDetailList,
     ''';
+  }
+}
+
+class TrainingSchedule {
+  int? scheduleId;
+  int userId;
+  String trainingType; // PLAN / GROUP / ACTIVITY
+  String? trainingName;
+  int? targetId;
+  String scheduledDate;
+  String startTime;
+  String endTime;
+  String status; // PENDING, COMPLETED, MISSED
+  int remindBeforeMinutes;
+  int remindSent;
+  String? gmtCreate, gmtModified;
+
+  TrainingSchedule({
+    this.scheduleId,
+    required this.userId,
+    required this.trainingType,
+    this.trainingName,
+    this.targetId,
+    required this.scheduledDate,
+    required this.startTime,
+    required this.endTime,
+    this.status = 'PENDING',
+    this.remindBeforeMinutes = 15,
+    this.remindSent = 0,
+    this.gmtCreate,
+    this.gmtModified,
+  });
+
+  Map<String, dynamic> toMap() {
+    return {
+      'schedule_id': scheduleId,
+      'user_id': userId,
+      'training_type': trainingType,
+      'training_name': trainingName,
+      'target_id': targetId,
+      'scheduled_date': scheduledDate,
+      'start_time': startTime,
+      'end_time': endTime,
+      'status': status,
+      'remind_before_minutes': remindBeforeMinutes,
+      'remind_sent': remindSent,
+      'gmt_create': gmtCreate,
+      'gmt_modified': gmtModified,
+    };
+  }
+
+  factory TrainingSchedule.fromMap(Map<String, dynamic> map) {
+    return TrainingSchedule(
+      scheduleId: map['schedule_id'] ?? map['scheduleId'],
+      userId: map['user_id'] ?? map['userId'],
+      trainingType: (map['training_type'] ?? map['trainingType']) as String,
+      trainingName: map['training_name'] ?? map['trainingName'],
+      targetId: map['target_id'] ?? map['targetId'],
+      scheduledDate: (map['scheduled_date'] ?? map['scheduledDate']) as String,
+      startTime: (map['start_time'] ?? map['startTime']) as String,
+      endTime: (map['end_time'] ?? map['endTime']) as String,
+      status: (map['status'] ?? 'PENDING') as String,
+      remindBeforeMinutes:
+          map['remind_before_minutes'] ?? map['remindBeforeMinutes'] ?? 15,
+      remindSent: map['remind_sent'] ?? map['remindSent'] ?? 0,
+      gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
+      gmtModified: map['gmt_modified'] ?? map['gmtModified'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'scheduleId': scheduleId,
+      'userId': userId,
+      'trainingType': trainingType,
+      'trainingName': trainingName,
+      'targetId': targetId,
+      'scheduledDate': scheduledDate,
+      'startTime': startTime,
+      'endTime': endTime,
+      'status': status,
+      'remindBeforeMinutes': remindBeforeMinutes,
+      'remindSent': remindSent,
+      'gmtCreate': gmtCreate,
+      'gmtModified': gmtModified,
+    };
+  }
+
+  TrainingSchedule copyWith({
+    int? scheduleId,
+    int? userId,
+    String? trainingType,
+    String? trainingName,
+    int? targetId,
+    String? scheduledDate,
+    String? startTime,
+    String? endTime,
+    String? status,
+    int? remindBeforeMinutes,
+    int? remindSent,
+    String? gmtCreate,
+    String? gmtModified,
+  }) {
+    return TrainingSchedule(
+      scheduleId: scheduleId ?? this.scheduleId,
+      userId: userId ?? this.userId,
+      trainingType: trainingType ?? this.trainingType,
+      trainingName: trainingName ?? this.trainingName,
+      targetId: targetId ?? this.targetId,
+      scheduledDate: scheduledDate ?? this.scheduledDate,
+      startTime: startTime ?? this.startTime,
+      endTime: endTime ?? this.endTime,
+      status: status ?? this.status,
+      remindBeforeMinutes: remindBeforeMinutes ?? this.remindBeforeMinutes,
+      remindSent: remindSent ?? this.remindSent,
+      gmtCreate: gmtCreate ?? this.gmtCreate,
+      gmtModified: gmtModified ?? this.gmtModified,
+    );
+  }
+
+  @override
+  String toString() {
+    return 'TrainingSchedule{id: $scheduleId, type: $trainingType, date: $scheduledDate, time: $startTime-$endTime, status: $status}';
   }
 }

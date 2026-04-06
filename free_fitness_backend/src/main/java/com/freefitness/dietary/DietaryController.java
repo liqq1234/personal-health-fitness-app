@@ -6,6 +6,7 @@ import com.freefitness.dietary.entity.*;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ import java.util.List;
 /**
  * 饮食管理接口
  */
+@Slf4j
 @Tag(name = "饮食管理", description = "食物库 / 营养素规格 / 每日饮食条目 / 营养汇总 / 餐次照片")
 @RestController
 @RequestMapping("/api/v1/dietary")
@@ -96,6 +98,16 @@ public class DietaryController {
             @RequestParam String date,
             @RequestParam(required = false) String mealCategory) {
         return Result.success(dietaryService.getDailyItems(userId, date, mealCategory));
+    }
+
+    @Operation(summary = "按日期范围查询饮食条目详情")
+    @GetMapping("/logs/detail")
+    public Result<List<com.freefitness.dietary.dto.DailyItemDetail>> getDailyItemsDetail(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
+            @RequestParam(required = false) String mealCategory) {
+        return Result.success(dietaryService.getDailyItemsDetailRange(userId, startDate, endDate, mealCategory));
     }
 
     @Operation(summary = "添加饮食条目")

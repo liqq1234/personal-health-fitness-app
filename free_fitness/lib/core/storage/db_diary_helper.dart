@@ -9,6 +9,8 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path_provider/path_provider.dart';
 
 import '../../models/diary_state.dart';
+import '../dio_client/cus_http_client.dart';
+import '../dio_client/api_endpoints.dart';
 import '../constants/constants.dart';
 import 'ddl_diary.dart';
 
@@ -47,13 +49,9 @@ class DBDiaryHelper {
     return diaryDb;
   }
 
-  // 创建训练数据库相关表
+  // 创建记录数据库相关表 (Decommissioned)
   void _createDb(Database db, int newVersion) async {
-    print("开始创建表 _createDb……");
-
-    await db.transaction((txn) async {
-      txn.execute(DiaryDdl.ddlForDiary);
-    });
+    print("开始创建表 _createDb (Diary moved to cloud)……");
   }
 
   // 关闭数据库
@@ -93,9 +91,7 @@ class DBDiaryHelper {
       'sqlite_master',
       where: 'type = ?',
       whereArgs: ['table'],
-    ))
-        .map((row) => row['name'] as String)
-        .toList(growable: false);
+    )).map((row) => row['name'] as String).toList(growable: false);
 
     print("Diary DB中拥有的表名:------------");
     print(tableNames);
@@ -150,38 +146,62 @@ class DBDiaryHelper {
   ///
   ///
   // 插入单条数据(返回 diary_id)
-  Future<int> insertDiary(Diary diary) async => (await database).insert(
-        DiaryDdl.tableNameOfDiary,
-        diary.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+  Future<int> insertDiary(Diary diary) async {
+    try {
+      await HttpUtils.post(
+        path: ApiEndpoints.diarySync,
+        data: diary.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Sync diary failed: $e");
+      return 0;
+    }
+  }
 
   Future<List<Object?>> insertDiaryList(List<Diary> diarys) async {
-    var batch = (await database).batch();
-    for (var item in diarys) {
-      batch.insert(
-        DiaryDdl.tableNameOfDiary,
-        item.toMap(),
-        conflictAlgorithm: ConflictAlgorithm.replace,
+    try {
+      await HttpUtils.post(
+        path: "${ApiEndpoints.diarySync}/batch",
+        data: diarys.map((e) => e.toJson()).toList(),
+        showLoading: false,
       );
+      return [];
+    } catch (e) {
+      print("Batch sync diary failed: $e");
+      return [];
     }
-    return batch.commit();
   }
 
   // 修改单条数据
-  Future<int> updateDiary(Diary diary) async => (await database).update(
-        DiaryDdl.tableNameOfDiary,
-        diary.toMap(),
-        where: 'diary_id = ?',
-        whereArgs: [diary.diaryId],
+  Future<int> updateDiary(Diary diary) async {
+    try {
+      await HttpUtils.put(
+        path: "${ApiEndpoints.diarySync}/${diary.diaryId}",
+        data: diary.toJson(),
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Update diary failed: $e");
+      return 0;
+    }
+  }
 
   // 删除单条数据
-  Future<int> deleteDiaryById(int id) async => (await database).delete(
-        DiaryDdl.tableNameOfDiary,
-        where: 'diary_id = ?',
-        whereArgs: [id],
+  Future<int> deleteDiaryById(int id) async {
+    try {
+      await HttpUtils.delete(
+        path: "${ApiEndpoints.diarySync}/$id",
+        showLoading: false,
       );
+      return 1;
+    } catch (e) {
+      print("Delete diary failed: $e");
+      return 0;
+    }
+  }
 
   // 关键字模糊查询基础活动
   Future<CusDataResult> queryDiaryByKeyword({
@@ -192,42 +212,31 @@ class DBDiaryHelper {
     // 2023-12-30 指定创建日期升序或者降序排序
     String? dateSort = "desc",
   }) async {
-    Database db = await database;
-    // 根据页数和页面获得偏移量
-    var offset = (page - 1) * pageSize;
-
-    var sort = dateSort?.toLowerCase();
-    if (dateSort != null) {
-      // 如果有传入创建时间排序，不是传的降序一律升序
-      sort = dateSort.toLowerCase() == 'desc' ? 'DESC' : 'ASC';
-    }
-
     try {
-      // 查询指定关键字当前页的数据
-      List<Map<String, dynamic>> maps = await db.query(
-        DiaryDdl.tableNameOfDiary,
-        where: '(title LIKE ? OR content LIKE ?) AND user_id = ?',
-        whereArgs: ['%$keyword%', '%$keyword%', userId],
-        limit: pageSize,
-        offset: offset,
-        orderBy: sort != null ? 'gmt_create $sort' : null,
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.diarySync}/search",
+        queryParameters: {
+          "userId": userId,
+          "keyword": keyword,
+          "pageSize": pageSize,
+          "page": page,
+          "dateSort": dateSort,
+        },
+        showLoading: false,
       );
-      final list = maps.map((row) => Diary.fromMap(row)).toList();
-
-      // 获取满足查询条件的数据总量
-      int? totalCount = Sqflite.firstIntValue(
-        await db.rawQuery(
-          'SELECT COUNT(*) FROM ${DiaryDdl.tableNameOfDiary} '
-          'WHERE (title LIKE ? OR content LIKE ?) AND user_id = ?',
-          ['%$keyword%', '%$keyword%', userId],
-        ),
-      );
-
-      // 查询每页指定数量的数据，但带上总条数
-      return CusDataResult(data: list, total: totalCount ?? 0);
+      if (response != null && response['data'] != null) {
+        var resultData = response['data'];
+        List<dynamic> list = resultData['list'] ?? [];
+        int total = resultData['total'] ?? 0;
+        return CusDataResult(
+          data: list.map((e) => Diary.fromMap(e)).toList(),
+          total: total,
+        );
+      }
     } catch (e) {
-      rethrow;
+      print("Query diary by keyword failed: $e");
     }
+    return CusDataResult(data: [], total: 0);
   }
 
   // 按日期范围查询(查询某一天也要起止为同一个即可)，查询所有
@@ -238,54 +247,42 @@ class DBDiaryHelper {
     // 2023-12-30 指定创建日期升序或者降序排序
     String? dateSort = "desc",
   }) async {
-    Database db = await database;
-
-    final where = <String>[];
-    final whereArgs = <dynamic>[];
-
-    where.add('user_id = ?');
-    whereArgs.add(userId);
-
-    if (startDate != null) {
-      where.add('date >= ?');
-      whereArgs.add(startDate);
-    }
-
-    if (endDate != null) {
-      where.add('date <= ?');
-      whereArgs.add(endDate);
-    }
-
-    var sort = dateSort?.toLowerCase();
-    if (dateSort != null) {
-      // 如果有传入创建时间排序，不是传的降序一律升序
-      sort = dateSort.toLowerCase() == 'desc' ? 'DESC' : 'ASC';
-    }
-
     try {
-      // 查询指定关键字当前页的数据
-      List<Map<String, dynamic>> maps = await db.query(
-        DiaryDdl.tableNameOfDiary,
-        where: where.isNotEmpty ? where.join(' AND ') : null,
-        whereArgs: whereArgs.isNotEmpty ? whereArgs : null,
-        orderBy: sort != null ? 'gmt_create $sort' : null,
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.diarySync}/range",
+        queryParameters: {
+          "userId": userId,
+          if (startDate != null) "startDate": startDate,
+          if (endDate != null) "endDate": endDate,
+          "dateSort": dateSort,
+        },
+        showLoading: false,
       );
-      final list = maps.map((row) => Diary.fromMap(row)).toList();
-
-      // 查询每页指定数量的数据，但带上总条数
-      return list;
+      if (response != null &&
+          response['data'] != null &&
+          response['data'] is List) {
+        List<dynamic> list = response['data'];
+        return list.map((e) => Diary.fromMap(e)).toList();
+      }
     } catch (e) {
-      rethrow;
+      print("Query diary range failed: $e");
     }
+    return [];
   }
 
   // 按指定编号查询
-  Future<List<Diary>> queryDiaryById(int id) async =>
-      (await (await database).query(
-        DiaryDdl.tableNameOfDiary,
-        where: "diary_id = ? ",
-        whereArgs: [id],
-      ))
-          .map((row) => Diary.fromMap(row))
-          .toList();
+  Future<List<Diary>> queryDiaryById(int id) async {
+    try {
+      var response = await HttpUtils.get(
+        path: "${ApiEndpoints.diarySync}/$id",
+        showLoading: false,
+      );
+      if (response != null && response['data'] != null) {
+        return [Diary.fromMap(response['data'])];
+      }
+    } catch (e) {
+      print("Query diary by id failed: $e");
+    }
+    return [];
+  }
 }

@@ -13,6 +13,8 @@ import '../../../models/cus_app_localizations.dart';
 import '../../../models/dietary_state.dart';
 import '../../../models/user_state.dart';
 import 'export/report_pdf_viewer.dart';
+import '../../../services/dietary_analysis_service.dart';
+import 'monthly_intake_line_chart.dart';
 import 'week_intake_bar.dart';
 
 class DietaryReports extends StatefulWidget {
@@ -86,6 +88,20 @@ class _DietaryReportsState extends State<DietaryReports> {
         startTemp = DateFormat(constDateFormat).format(startOfLastWeek);
         endTemp = DateFormat(constDateFormat).format(endOfLastWeek);
         break;
+      case "this_month":
+        DateTime now = DateTime.now();
+        DateTime startOfMonth = DateTime(now.year, now.month, 1);
+        DateTime endOfMonth = DateTime(now.year, now.month + 1, 0);
+        startTemp = DateFormat(constDateFormat).format(startOfMonth);
+        endTemp = DateFormat(constDateFormat).format(endOfMonth);
+        break;
+      case "last_month":
+        DateTime now = DateTime.now();
+        DateTime startOfLastMonth = DateTime(now.year, now.month - 1, 1);
+        DateTime endOfLastMonth = DateTime(now.year, now.month, 0);
+        startTemp = DateFormat(constDateFormat).format(startOfLastMonth);
+        endTemp = DateFormat(constDateFormat).format(endOfLastMonth);
+        break;
     }
 
     tempMap = {"startDate": startTemp, "endDate": endTemp};
@@ -142,6 +158,7 @@ class _DietaryReportsState extends State<DietaryReports> {
       }
 
       dfiwfsList = temp;
+      loginUser = tempUser.user;
       isLoading = false;
     });
   }
@@ -279,15 +296,55 @@ class _DietaryReportsState extends State<DietaryReports> {
         _buildPieChartCard(formatData(dfiwfsList), CusChartType.calory),
       );
     } else {
-      // 当周的营养素条状图
-      chart = [
-        _buildBarChartCard(formatWeekData(dfiwfsList), CusChartType.calory),
-      ];
+      // 如果是多日（周、月），则同时显示分布饼图和趋势图
+      // 1. 整体分布饼图（该时段总量的占比）
+      chart.add(
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.sp, vertical: 5.sp),
+          child: Text(
+            "总体摄入分布 (Pie Chart)",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          ),
+        ),
+      );
+      chart.add(
+        _buildPieChartCard(formatData(dfiwfsList), CusChartType.calory),
+      );
+
+      chart.add(SizedBox(height: 10.sp));
+
+      // 2. 趋势图（柱状或折线）
+      chart.add(
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.sp, vertical: 5.sp),
+          child: Text(
+            (dropdownValue.value.contains("month"))
+                ? "趋势分析 (Line Chart)"
+                : "每日摄入对比 (Bar Chart)",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          ),
+        ),
+      );
+
+      if (dropdownValue.value.contains("month")) {
+        chart.add(
+          _buildMonthlyChartCard(
+            formatWeekData(dfiwfsList),
+            CusChartType.calory,
+          ),
+        );
+      } else {
+        chart.add(
+          _buildBarChartCard(formatWeekData(dfiwfsList), CusChartType.calory),
+        );
+      }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // 始终显示，基于最近一周数据
+        _buildAnalysisCard(),
         ...chart,
 
         /// 食物摄入条目统计卡片(类型为name表示食物摄入次数)
@@ -354,15 +411,54 @@ class _DietaryReportsState extends State<DietaryReports> {
       /// 当日主要营养素占比饼图卡片
       chart = [_buildPieChartCard(formatData(dfiwfsList), CusChartType.macro)];
     } else {
-      // 当周的营养素条状图
-      chart = [
-        _buildBarChartCard(formatWeekData(dfiwfsList), CusChartType.macro),
-      ];
+      // 如果是多日（周、月），则同时显示分布饼图和趋势图
+      // 1. 整体分布饼图（该时段总量的占比）
+      chart.add(
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.sp, vertical: 5.sp),
+          child: Text(
+            "总体宏量素分布 (Pie Chart)",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          ),
+        ),
+      );
+      chart.add(_buildPieChartCard(formatData(dfiwfsList), CusChartType.macro));
+
+      chart.add(SizedBox(height: 10.sp));
+
+      // 2. 趋势图（柱状或折线）
+      chart.add(
+        Padding(
+          padding: EdgeInsets.symmetric(horizontal: 10.sp, vertical: 5.sp),
+          child: Text(
+            (dropdownValue.value.contains("month"))
+                ? "趋势分析 (Line Chart)"
+                : "每日宏量对比 (Bar Chart)",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14.sp),
+          ),
+        ),
+      );
+
+      if (dropdownValue.value.contains("month")) {
+        chart.add(
+          _buildMonthlyChartCard(
+            formatWeekData(dfiwfsList),
+            CusChartType.macro,
+          ),
+        );
+      } else {
+        chart.add(
+          _buildBarChartCard(formatWeekData(dfiwfsList), CusChartType.macro),
+        );
+      }
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // 增加饮食分析建议 (始终显示，基于最近一周数据)
+        _buildAnalysisCard(),
+
         /// 当日主要营养素占比卡片
         ...chart,
 
@@ -867,6 +963,142 @@ class _DietaryReportsState extends State<DietaryReports> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  /// 饮食分析建议卡片
+  Widget _buildAnalysisCard() {
+    // 获取分析数据（这里实际上需要过去7天的数据，无论当前下拉选的是什么）
+    // 为了简单起见，我们先尝试获取当前查询范围的数据进行分析，
+    // 但更好的做法是单独查询过去7天的数据。
+    // 目前 _queryDailyFoodItemList 会根据 dropdownValue 更新 dfiwfsList。
+
+    var weekData = formatWeekData(dfiwfsList);
+
+    // 我们调用 analyzeWeeklyIntake 获取更详细的数据
+    var analysis = DietaryAnalysisService.analyzeWeeklyIntake(
+      dfiwfsList,
+      loginUser.currentWeight?.toDouble() ?? 0.0,
+      valueRDA,
+    );
+
+    var advice = DietaryAnalysisService.getAnalysisAdvice(
+      weekData,
+      CusAL.of(context),
+      rDA: valueRDA.toDouble(),
+    );
+
+    return Card(
+      elevation: 5.sp,
+      margin: EdgeInsets.all(10.sp),
+      child: Padding(
+        padding: EdgeInsets.all(12.sp),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  Icons.analytics_rounded,
+                  color: Colors.blueAccent,
+                  size: 28.sp,
+                ),
+                SizedBox(width: 8.sp),
+                Text(
+                  CusAL.of(context).dietaryAdviceTitle,
+                  style: TextStyle(
+                    fontSize: 18.sp,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blueAccent,
+                  ),
+                ),
+              ],
+            ),
+            Divider(height: 24.sp),
+            // 显示平均值
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildStatItem(
+                  "蛋白质",
+                  "${analysis['avgProtein'].toStringAsFixed(1)}g",
+                  analysis['avgProtein'] >= analysis['proteinThreshold'],
+                ),
+                _buildStatItem(
+                  "膳食纤维",
+                  "${analysis['avgFiber'].toStringAsFixed(1)}g",
+                  analysis['avgFiber'] >= analysis['fiberThreshold'],
+                ),
+                _buildStatItem(
+                  "平均热量",
+                  "${analysis['avgCalories'].toStringAsFixed(0)}kcal",
+                  true,
+                ),
+              ],
+            ),
+            SizedBox(height: 16.sp),
+            Container(
+              padding: EdgeInsets.all(10.sp),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(8.sp),
+                border: Border.all(color: Colors.blue.withOpacity(0.1)),
+              ),
+              child: Text(
+                advice,
+                style: TextStyle(
+                  fontSize: 14.sp,
+                  height: 1.6,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, bool isGood) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: TextStyle(fontSize: 12.sp, color: Colors.grey),
+        ),
+        SizedBox(height: 4.sp),
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 16.sp,
+            fontWeight: FontWeight.bold,
+            color: isGood ? Colors.green : Colors.orange,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// 绘制月度分析趋势折线图
+  Card _buildMonthlyChartCard(
+    Map<String, FoodNutrientTotals> map,
+    CusChartType type,
+  ) {
+    return Card(
+      elevation: 5.sp,
+      child: Column(
+        children: [
+          ListTile(
+            title: Text(
+              type == CusChartType.calory
+                  ? CusAL.of(context).intakeLabels('0')
+                  : CusAL.of(context).intakeLabels('1'),
+            ),
+            subtitle: const Text("Trend Analysis"),
+          ),
+          MonthlyIntakeLineChart(fntMap: map, type: type),
         ],
       ),
     );
