@@ -323,12 +323,16 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
         ).subtract(Duration(minutes: remindMin));
 
         if (scheduledTime.isAfter(DateTime.now())) {
-          await NotificationService().scheduleNotification(
-            id: saved.scheduleId!,
-            title: '训练计划提醒',
-            body: '您预约的 [$activityName] 即将开始，请做好准备！',
-            scheduledDate: scheduledTime,
-          );
+          try {
+            await NotificationService().scheduleNotification(
+              id: saved.scheduleId!,
+              title: '训练计划提醒',
+              body: '您预约的 [$activityName] 即将开始，请做好准备！',
+              scheduledDate: scheduledTime,
+            );
+          } catch (e) {
+            debugPrint('分发通知提醒报错: $e');
+          }
         }
       }
 

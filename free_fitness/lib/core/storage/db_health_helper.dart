@@ -172,11 +172,29 @@ class DBHealthHelper {
     }
   }
 
-  Future<List<SleepRecord>> querySleepList({int limit = 10}) async {
+  Future<List<SleepRecord>> querySleepList({
+    int limit = 10,
+    String? startDate,
+    String? endDate,
+  }) async {
     // 1. 优先查询本地数据库
     Database db = await database;
+
+    String whereClause = "";
+    List<dynamic> whereArgs = [];
+
+    if (startDate != null && endDate != null) {
+      whereClause = "start_time BETWEEN ? AND ?";
+      whereArgs = ["$startDate 00:00:00", "$endDate 23:59:59"];
+    } else if (startDate != null) {
+      whereClause = "start_time >= ?";
+      whereArgs = ["$startDate 00:00:00"];
+    }
+
     final List<Map<String, dynamic>> maps = await db.query(
       HealthCoreDdl.tableNameSleep,
+      where: whereClause.isEmpty ? null : whereClause,
+      whereArgs: whereArgs.isEmpty ? null : whereArgs,
       limit: limit,
       orderBy: "start_time DESC",
     );

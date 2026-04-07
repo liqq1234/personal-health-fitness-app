@@ -1,9 +1,12 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:intl/intl.dart';
+import '../../models/health_models.dart';
 import '../../services/pedometer_service.dart';
 import '../../core/storage/db_health_helper.dart';
 import '../dietary/diet_entry.dart';
+import '../diary/sleep_report.dart';
 import '../diary/sleep_entry.dart';
 import '../../services/sync_service.dart';
 import '../../core/storage/db_user_helper.dart';
@@ -23,10 +26,10 @@ class HealthDashboard extends StatefulWidget {
   const HealthDashboard({super.key});
 
   @override
-  State<HealthDashboard> createState() => _HealthDashboardState();
+  State<HealthDashboard> createState() => HealthDashboardState();
 }
 
-class _HealthDashboardState extends State<HealthDashboard> {
+class HealthDashboardState extends State<HealthDashboard> {
   final _pedometerService = PedometerService();
   final _dbHelper = DBHealthHelper();
   final _dbTrainingHelper = DBTrainingHelper();
@@ -37,7 +40,10 @@ class _HealthDashboardState extends State<HealthDashboard> {
   double _exerciseCalories = 0;
   List<TrainingSchedule> _todaySchedules = [];
   String _dietAdvice = '';
-  double _userWeight = 0;
+  bool _isAIProcessing = false;
+  static String? _cachedAIAdvice;
+  static String? _cachedAIDate;
+  double _userWeight = 70.0;
   int _rdaGoal = 2000;
   StreamSubscription<int>? _stepSubscription;
 
@@ -86,15 +92,24 @@ class _HealthDashboardState extends State<HealthDashboard> {
       debugPrint('获取今日排程失败: $e');
     }
 
-    // 获取最近 7 天详细饮食数据以生成建议 (使用 DBDietaryHelper)
+    // 获取最近 7 天详细饮食数据以生成建议 (同时使用 DBDietaryHelper 和 DBHealthHelper)
     var sevenDaysAgo = DateTime.now().subtract(const Duration(days: 7));
+    var sevenDaysAgoStr = sevenDaysAgo.toIso8601String().split('T')[0];
+
+    // 详细请求 (Cloud)
     var recentDietDetails = await DBDietaryHelper()
         .queryDailyFoodItemListWithDetail(
           userId: CacheUser.userId,
-          startDate: sevenDaysAgo.toIso8601String().split('T')[0],
+          startDate: sevenDaysAgoStr,
           endDate: todayStr,
           withDetail: true,
         );
+
+    // 简易请求 (Local)
+    var recentDietLogs = await _dbHelper.queryDietList(
+      startDate: sevenDaysAgoStr,
+      endDate: todayStr,
+    );
 
     // 查询今日运动记录
     var trainingLogs = await _dbTrainingHelper.queryTrainedDetailLog(
@@ -124,19 +139,74 @@ class _HealthDashboardState extends State<HealthDashboard> {
           (sum, item) => sum + (item.consumption ?? 0),
         );
 
-        // 基于最近 7 天详细饮食数据生成饮食建议
+        // 基于详细和简易饮食数据生成饮食建议
         final analysis = DietaryAnalysisService.analyzeWeeklyIntake(
           recentDietDetails.cast<DailyFoodItemWithFoodServing>(),
           _userWeight,
           _rdaGoal,
+          simpleDietLogs: recentDietLogs,
         );
         _dietAdvice = DietaryAnalysisService.getAnalysisAdvice(
-          analysis['dailyTotals'] as Map<String, FoodNutrientTotals>? ?? {},
+          analysis,
           CusAL.of(context),
           rDA: _rdaGoal.toDouble(),
         );
+
+        // 每日更新三次：早(5-11)、中(11-17)、晚(17-次日5)
+        final now = DateTime.now();
+        int slot = 0;
+        if (now.hour >= 5 && now.hour < 11) {
+          slot = 0;
+        } else if (now.hour >= 11 && now.hour < 17) {
+          slot = 1;
+        } else {
+          slot = 2;
+        }
+
+        String todaySlot = "${DateFormat('yyyy-MM-dd').format(now)}_$slot";
+        if (_cachedAIDate != todaySlot || _cachedAIAdvice == null) {
+          _fetchAIDietaryAdvice(
+            analysis,
+            recentDietLogs,
+            _rdaGoal.toDouble(),
+            todaySlot,
+          );
+        } else {
+          _dietAdvice = "$_dietAdvice\n\n$_cachedAIAdvice";
+        }
       });
     }
+  }
+
+  Future<void> _fetchAIDietaryAdvice(
+    Map<String, dynamic> analysis,
+    List<DietLog> weeklyLogs,
+    double rda,
+    String slotKey,
+  ) async {
+    if (mounted) setState(() => _isAIProcessing = true);
+
+    final aiAdvice = await DietaryAnalysisService.getAIDietaryAnalysis(
+      analysis,
+      weeklyLogs,
+      rda,
+    );
+
+    if (mounted && aiAdvice.isNotEmpty) {
+      setState(() {
+        _cachedAIAdvice = aiAdvice;
+        _cachedAIDate = slotKey;
+        // 将AI建议追加到基础建议之后
+        _dietAdvice = "${_dietAdvice.split('【AI').first.trim()}\n\n$aiAdvice";
+        _isAIProcessing = false;
+      });
+    } else if (mounted) {
+      setState(() => _isAIProcessing = false);
+    }
+  }
+
+  void refresh() {
+    _initHealth();
   }
 
   @override
@@ -156,6 +226,7 @@ class _HealthDashboardState extends State<HealthDashboard> {
                 sleepHours: _sleepHours,
                 todaySchedules: _todaySchedules,
                 dietAdvice: _dietAdvice,
+                isAnalyzing: _isAIProcessing,
               ),
               SizedBox(height: 8.sp),
             ],
@@ -184,95 +255,101 @@ class _HealthDashboardState extends State<HealthDashboard> {
         ),
         child: Column(
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            Stack(
               children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      "今日步数/Today's Steps",
-                      style: TextStyle(
-                        color: colorScheme.onSurfaceVariant,
-                        fontSize: 14.sp,
-                      ),
-                    ),
-                    GestureDetector(
-                      onTap: () async {
-                        await _pedometerService.manualAddSteps(1000);
-                        _initHealth();
-                      },
-                      child: Text(
-                        '$_steps',
+                Center(
+                  child: Column(
+                    children: [
+                      Text(
+                        "今日 / Today",
                         style: TextStyle(
                           color: colorScheme.primary,
-                          fontSize: 32.sp,
+                          fontSize: 16.sp,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    IconButton(
-                      tooltip: '后端模拟(测试用)',
-                      icon: Icon(
-                        Icons.psychology,
-                        color: colorScheme.secondary,
+                      SizedBox(height: 8.sp),
+                      GestureDetector(
+                        onTap: () async {
+                          await _pedometerService.manualAddSteps(1000);
+                          _initHealth();
+                        },
+                        child: Text(
+                          '$_steps',
+                          style: TextStyle(
+                            color: colorScheme.onSurface,
+                            fontSize: 48.sp,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
                       ),
-                      onPressed: () async {
-                        await SyncService().simulateBackendWalk();
-                        _initHealth();
-                      },
-                    ),
-                    IconButton(
-                      tooltip: '数据同步',
-                      icon: Icon(Icons.sync, color: colorScheme.primary),
-                      onPressed: () async {
-                        await SyncService().syncData();
-                        await SyncService().pullSteps();
-                        _initHealth();
-                      },
-                    ),
-                    Icon(
-                      Icons.directions_walk,
-                      color: colorScheme.primary,
-                      size: 40.sp,
-                    ),
-                  ],
+                      Text(
+                        "步数 Steps",
+                        style: TextStyle(
+                          color: colorScheme.onSurfaceVariant,
+                          fontSize: 14.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip: '数据同步',
+                        icon: Icon(
+                          Icons.sync,
+                          color: colorScheme.primary,
+                          size: 20.sp,
+                        ),
+                        onPressed: () async {
+                          await SyncService().syncData();
+                          await SyncService().pullSteps();
+                          _initHealth();
+                        },
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
             SizedBox(height: 16.sp),
-            Column(
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildMetric(
-                      Icons.local_fire_department,
-                      '${_dietCalories.toStringAsFixed(0)}',
-                      'kcal(进食)',
-                    ),
-                    _buildMetric(
-                      Icons.bedtime,
-                      '${_sleepHours.toStringAsFixed(1)}',
-                      'h(睡眠)',
-                    ),
-                  ],
+                _buildMetric(
+                  Icons.local_fire_department,
+                  '${_dietCalories.toStringAsFixed(0)}',
+                  'kcal(进食)',
                 ),
-                SizedBox(height: 12.sp),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
-                  children: [
-                    _buildMetric(Icons.timer, '$_trainingMinutes', 'min(训练时长)'),
-                    _buildMetric(
-                      Icons.directions_run,
-                      '${(_exerciseCalories + _steps * 0.04).toStringAsFixed(0)}',
-                      'kcal(消耗)',
+                GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const SleepReportPage(),
                     ),
-                  ],
+                  ).then((_) => _initHealth()),
+                  child: _buildMetric(
+                    Icons.bedtime,
+                    '${_sleepHours.toStringAsFixed(1)}',
+                    'h(睡眠)',
+                  ),
+                ),
+              ],
+            ),
+            SizedBox(height: 12.sp),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _buildMetric(Icons.timer, '$_trainingMinutes', 'min(训练时长)'),
+                _buildMetric(
+                  Icons.directions_run,
+                  '${(_exerciseCalories + _steps * 0.04).toStringAsFixed(0)}',
+                  'kcal(消耗)',
                 ),
               ],
             ),
@@ -298,7 +375,7 @@ class _HealthDashboardState extends State<HealthDashboard> {
           child: ElevatedButton.icon(
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (c) => const DietEntryPage()),
+              MaterialPageRoute(builder: (c) => DietEntryPage()),
             ).then((_) => _initHealth()),
             icon: const Icon(Icons.restaurant),
             label: const Text('记饮食'),
@@ -317,7 +394,7 @@ class _HealthDashboardState extends State<HealthDashboard> {
           child: ElevatedButton.icon(
             onPressed: () => Navigator.push(
               context,
-              MaterialPageRoute(builder: (c) => const SleepEntryPage()),
+              MaterialPageRoute(builder: (c) => SleepEntryPage()),
             ).then((_) => _initHealth()),
             icon: const Icon(Icons.bed),
             label: const Text('记睡眠'),

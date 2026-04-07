@@ -19,12 +19,12 @@ import 'widgets/message_item.dart';
 
 class OneChatScreen extends StatefulWidget {
   // 初始的对话提示词(如果是营养摄入时点击，则只有这个)
-  final String intakeInfo;
+  final String? intakeInfo;
   // 如果是在餐次相册中分析指定图片，则除了提示词，还需要图片
   // 因为这里还需要展示图片，所以传入图片地址即可
   final String? imageUrl;
 
-  const OneChatScreen({super.key, required this.intakeInfo, this.imageUrl});
+  const OneChatScreen({super.key, this.intakeInfo, this.imageUrl});
 
   @override
   State createState() => _OneChatScreenState();
@@ -97,7 +97,7 @@ class _OneChatScreenState extends State<OneChatScreen> {
 
           // 初始化时设定需要发送图片
           isFirstSendImage = true;
-          _sendMessage(widget.intakeInfo);
+          _sendMessage(widget.intakeInfo!);
           // 初始化提交之后，就不再发送图片了
           isFirstSendImage = false;
         });
@@ -122,11 +122,29 @@ class _OneChatScreenState extends State<OneChatScreen> {
           },
         ).then((value) {
           if (!mounted) return;
-          Navigator.of(context).pop();
+          if (Navigator.of(context).canPop()) {
+            Navigator.of(context).pop();
+          }
         });
       }
     } else {
-      _sendMessage(widget.intakeInfo);
+      if (widget.intakeInfo != null && widget.intakeInfo!.isNotEmpty) {
+        _sendMessage(widget.intakeInfo!);
+      } else {
+        // 如果没有预设提示词，则发送一条欢迎语
+        setState(() {
+          messages.add(
+            ChatMessage(
+              messageId: const Uuid().v4(),
+              content: box.read('language') == 'en'
+                  ? "Hello! I am your personal nutrition expert. You can tell me what you ate, and I will estimate the calories and provide healthy suggestions for you."
+                  : "你好！我是您的私人营养专家。您可以告诉我您吃了什么，我会为您估算卡路里并提供建议，或者您可以向我咨询任何健康饮食相关的问题。",
+              role: "assistant",
+              dateTime: DateTime.now(),
+            ),
+          );
+        });
+      }
     }
   }
 
@@ -208,6 +226,7 @@ class _OneChatScreenState extends State<OneChatScreen> {
     // 流式响应处理
     StreamWithCancel<CCRespBody> stream;
     if (imageBase64String != null) {
+      // 如果有图片，暂时还用零一万物，但如果用户没准备 key，可能会报错
       stream = await getChatRespStream(
         ApiPlatform.lingyiwanwu,
         msgs,
@@ -215,10 +234,11 @@ class _OneChatScreenState extends State<OneChatScreen> {
         stream: isStream,
       );
     } else {
+      // 文本对话默认改用 DeepSeek
       stream = await getChatRespStream(
-        ApiPlatform.lingyiwanwu,
+        ApiPlatform.deepseek,
         msgs,
-        model: ccmSpecList[CCM.YiLightning]!.model,
+        model: ccmSpecList[CCM.DeepSeekChat]!.model,
         stream: isStream,
       );
     }

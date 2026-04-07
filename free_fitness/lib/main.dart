@@ -7,10 +7,12 @@ import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:sqflite/sqflite.dart';
 
 import 'package:get_storage/get_storage.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'core/utils/toast_utils.dart';
 import 'layout/app.dart';
 import 'services/app_restart_service.dart';
+import 'services/notification_service.dart';
 
 GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
@@ -46,6 +48,10 @@ class AppCatchError {
       ]).then((_) async {
         WidgetsFlutterBinding.ensureInitialized();
         await GetStorage.init();
+        // 初始化通知服务
+        await NotificationService().init();
+        // 加载环境配置文件
+        await dotenv.load(fileName: "assets/.env");
         // await GetStorage().write('language', 'en');
         // await GetStorage().write('language', 'zh');
         await GetStorage().write('language', 'system');

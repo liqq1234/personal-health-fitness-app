@@ -39,7 +39,11 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
       startDate: startStr,
       endDate: endStr,
     );
-    var sleepList = await _dbHelper.querySleepList(limit: 100);
+    var sleepList = await _dbHelper.querySleepList(
+      startDate: startStr,
+      endDate: endStr,
+      limit: 200,
+    );
     var trainingList = await _dbTrainingHelper.queryTrainedDetailLog(
       startDate: "$startStr 00:00:00",
       endDate: "$endStr 23:59:59",

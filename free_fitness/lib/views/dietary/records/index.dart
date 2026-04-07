@@ -387,30 +387,58 @@ class _DietaryRecordsState extends State<DietaryRecords> {
                 ),
               ],
             ),
-      floatingActionButton: dfiwfsList.isEmpty
-          ? null
-          : FloatingActionButton(
-              onPressed: () {
-                if (dfiwfsList.isEmpty) {
-                  commonExceptionDialog(
-                    context,
-                    "提示",
-                    "本日暂无食物摄入信息，无须AI助手给出分析建议。",
-                  );
-                } else {
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) =>
-                          OneChatScreen(intakeInfo: buildSuggestionString()),
-                    ),
-                  );
-                }
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          if (dfiwfsList.isEmpty) {
+            // 如果没数据，直接进入对话
+            Navigator.of(context).push(
+              MaterialPageRoute(builder: (context) => const OneChatScreen()),
+            );
+          } else {
+            // 如果有数据，弹出菜单选择
+            showModalBottomSheet(
+              context: context,
+              builder: (BuildContext context) {
+                return SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: <Widget>[
+                      ListTile(
+                        leading: const Icon(Icons.analytics),
+                        title: const Text('分析今日摄入汇总'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => OneChatScreen(
+                                intakeInfo: buildSuggestionString(),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.chat),
+                        title: const Text('AI 快速估算 / 咨询'),
+                        onTap: () {
+                          Navigator.pop(context);
+                          Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const OneChatScreen(),
+                            ),
+                          );
+                        },
+                      ),
+                    ],
+                  ),
+                );
               },
-              tooltip: box.read('language') == 'en'
-                  ? "AI Assistant"
-                  : 'AI分析对话助手',
-              child: const Icon(Icons.chat),
-            ),
+            );
+          }
+        },
+        tooltip: box.read('language') == 'en' ? "AI Assistant" : 'AI分析对话助手',
+        child: const Icon(Icons.chat),
+      ),
     );
   }
 

@@ -4,10 +4,12 @@ import 'package:flutter/services.dart';
 import '../core/utils/toast_utils.dart';
 import '../core/utils/tools.dart';
 import '../models/cus_app_localizations.dart';
-import '../views/diary/index_table_calendar.dart';
+// import '../views/diary/index_table_calendar.dart';
 import '../views/me/index.dart';
 import '../views/training/health_dashboard.dart';
 import '../views/training/index.dart';
+import '../views/dietary/diet_entry.dart';
+import '../views/diary/sleep_report.dart';
 import '../services/pedometer_service.dart';
 
 /// 主页面
@@ -20,13 +22,15 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int _selectedIndex = 0;
+  int _selectedIndex = 2; // Default to Today
+  static final GlobalKey<HealthDashboardState> _healthKey = GlobalKey();
 
-  static const List<Widget> _widgetOptions = <Widget>[
-    HealthDashboard(),
-    Training(),
-    DiaryTableCalendar(),
-    UserAndSettings(),
+  static List<Widget> _widgetOptions = <Widget>[
+    const DietEntryPage(),
+    const Training(),
+    HealthDashboard(key: _healthKey),
+    const SleepReportPage(),
+    const UserAndSettings(),
   ];
 
   @override
@@ -78,6 +82,10 @@ class _HomePageState extends State<HomePage> {
     setState(() {
       _selectedIndex = index;
     });
+    // 如果切回到“今日”仪表盘，则触发刷新
+    if (index == 2) {
+      _healthKey.currentState?.refresh();
+    }
   }
 
   @override
@@ -115,6 +123,7 @@ class _HomePageState extends State<HomePage> {
           },
         ); // 只有当对话框返回true 才 pop(返回上一层)
         if (shouldPop ?? false) {
+          if (!context.mounted) return;
           // 如果还有可以关闭的导航，则继续pop
           if (navigator.canPop()) {
             navigator.pop();
@@ -134,16 +143,20 @@ class _HomePageState extends State<HomePage> {
           type: BottomNavigationBarType.fixed,
           items: <BottomNavigationBarItem>[
             const BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard),
-              label: '今日',
+              icon: Icon(Icons.restaurant),
+              label: '饮食',
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.fitness_center),
               label: CusAL.of(context).training,
             ),
-            BottomNavigationBarItem(
-              icon: const Icon(Icons.note),
-              label: CusAL.of(context).diary,
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.dashboard),
+              label: '今日',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.bedtime),
+              label: '睡眠',
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.person),

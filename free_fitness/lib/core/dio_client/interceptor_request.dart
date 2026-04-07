@@ -17,7 +17,11 @@ class RequestInterceptor extends Interceptor {
     // 登录的时候要存入缓存，所以请求时要从缓存中拿，如果缓存中没有，采用登录预设的字符串
     String? token = box.read(LocalStorageKey.token);
 
-    if (token != null && token.isNotEmpty) {
+    bool hasAuthHeader = options.headers.keys.any(
+      (key) => key.toLowerCase() == 'authorization',
+    );
+
+    if (token != null && token.isNotEmpty && !hasAuthHeader) {
       options.headers['Authorization'] = 'Bearer $token';
     }
 

@@ -9,6 +9,7 @@ class HealthAssessmentCard extends StatelessWidget {
   final double sleepHours;
   final List<TrainingSchedule> todaySchedules;
   final String dietAdvice;
+  final bool isAnalyzing;
 
   const HealthAssessmentCard({
     super.key,
@@ -16,6 +17,7 @@ class HealthAssessmentCard extends StatelessWidget {
     required this.sleepHours,
     required this.todaySchedules,
     required this.dietAdvice,
+    this.isAnalyzing = false,
   });
 
   Widget _buildAssessmentItem(
@@ -126,7 +128,7 @@ class HealthAssessmentCard extends StatelessWidget {
               sleepDone,
               Icons.bedtime,
             ),
-            if (dietAdvice.isNotEmpty) ...[
+            if (dietAdvice.isNotEmpty || isAnalyzing) ...[
               Divider(height: 24.sp),
               Row(
                 children: [
@@ -137,22 +139,46 @@ class HealthAssessmentCard extends StatelessWidget {
                   ),
                   SizedBox(width: 8.sp),
                   Text(
-                    al.dietAdviceStatus,
+                    'AI 饮食建议',
                     style: TextStyle(
                       fontSize: 14.sp,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  if (isAnalyzing) ...[
+                    SizedBox(width: 12.sp),
+                    SizedBox(
+                      width: 12.sp,
+                      height: 12.sp,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          colorScheme.primary,
+                        ),
+                      ),
+                    ),
+                  ],
                 ],
               ),
               SizedBox(height: 8.sp),
-              Text(
-                dietAdvice,
-                style: TextStyle(
-                  fontSize: 13.sp,
-                  color: colorScheme.onSurfaceVariant,
+              if (dietAdvice.isNotEmpty)
+                Text(
+                  dietAdvice,
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: colorScheme.onSurfaceVariant,
+                    height: 1.5,
+                  ),
                 ),
-              ),
+              if (isAnalyzing && dietAdvice.isEmpty)
+                Text(
+                  "AI营养师正在努力思考您的饮食报告...",
+                  style: TextStyle(
+                    fontSize: 13.sp,
+                    color: colorScheme.onSurfaceVariant.withOpacity(0.6),
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
             ],
           ],
         ),

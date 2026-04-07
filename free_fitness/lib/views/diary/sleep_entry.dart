@@ -15,7 +15,25 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
   DateTime _startTime = DateTime.now().subtract(const Duration(hours: 8));
   DateTime _endTime = DateTime.now();
   final _noteController = TextEditingController();
+  final _startController = TextEditingController();
+  final _endController = TextEditingController();
   final _dbHelper = DBHealthHelper();
+  bool _isSaving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _startController.text = DateFormat('yyyy-MM-dd HH:mm').format(_startTime);
+    _endController.text = DateFormat('yyyy-MM-dd HH:mm').format(_endTime);
+  }
+
+  @override
+  void dispose() {
+    _noteController.dispose();
+    _startController.dispose();
+    _endController.dispose();
+    super.dispose();
+  }
 
   Future<void> _selectDateTime(BuildContext context, bool isStart) async {
     final DateTime? pickedDate = await showDatePicker(
@@ -39,6 +57,9 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
               pickedTime.hour,
               pickedTime.minute,
             );
+            _startController.text = DateFormat(
+              'yyyy-MM-dd HH:mm',
+            ).format(_startTime);
           } else {
             _endTime = DateTime(
               pickedDate.year,
@@ -47,6 +68,9 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
               pickedTime.hour,
               pickedTime.minute,
             );
+            _endController.text = DateFormat(
+              'yyyy-MM-dd HH:mm',
+            ).format(_endTime);
           }
         });
       }
@@ -54,6 +78,7 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
   }
 
   Future<void> _saveRecord() async {
+    if (_isSaving) return;
     double duration = _endTime.difference(_startTime).inMinutes / 60.0;
     if (duration <= 0) {
       ScaffoldMessenger.of(
@@ -62,16 +87,25 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
       return;
     }
 
-    final record = SleepRecord(
-      startTime: _startTime.toIso8601String(),
-      endTime: _endTime.toIso8601String(),
-      durationHours: duration,
-      note: _noteController.text,
-      gmtCreate: DateTime.now().toIso8601String(),
-    );
+    setState(() => _isSaving = true);
+    try {
+      final record = SleepRecord(
+        startTime: _startTime.toIso8601String(),
+        endTime: _endTime.toIso8601String(),
+        durationHours: duration,
+        note: _noteController.text,
+        gmtCreate: DateTime.now().toIso8601String(),
+      );
 
-    await _dbHelper.insertSleep(record);
-    if (mounted) Navigator.pop(context);
+      await _dbHelper.insertSleep(record);
+      if (!mounted) return;
+
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    } finally {
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   @override
@@ -93,9 +127,7 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
                     border: OutlineInputBorder(),
                     suffixIcon: Icon(Icons.calendar_today),
                   ),
-                  controller: TextEditingController(
-                    text: DateFormat('yyyy-MM-dd HH:mm').format(_startTime),
-                  ),
+                  controller: _startController,
                 ),
               ),
             ),
@@ -110,9 +142,7 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
                     border: OutlineInputBorder(),
                     suffixIcon: Icon(Icons.calendar_today),
                   ),
-                  controller: TextEditingController(
-                    text: DateFormat('yyyy-MM-dd HH:mm').format(_endTime),
-                  ),
+                  controller: _endController,
                 ),
               ),
             ),
@@ -153,8 +183,10 @@ class _SleepEntryPageState extends State<SleepEntryPage> {
               style: ElevatedButton.styleFrom(
                 minimumSize: Size(double.infinity, 50.sp),
               ),
-              onPressed: _saveRecord,
-              child: const Text('保存记录'),
+              onPressed: _isSaving ? null : _saveRecord,
+              child: _isSaving
+                  ? const CircularProgressIndicator()
+                  : const Text('保存记录'),
             ),
           ],
         ),

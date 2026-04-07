@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart';
 
 import 'package:dio/dio.dart';
 import 'package:proste_logger/proste_logger.dart';
@@ -9,9 +10,10 @@ import '../dio_client/dio_sse_transformer.dart';
 import '../dio_client/interceptor_error.dart';
 import '../dio_client/cus_http_client.dart';
 import '../dio_client/cus_http_request.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 import '../../models/paid_llm/common_chat_completion_state.dart';
 import '../../models/paid_llm/common_chat_model_spec.dart';
-import '_self_keys.dart';
+// import '_self_keys.dart';
 
 ///
 /// 这里 _self_keys.dart 就是自己AI大模型API平台所在的AK，代码内容如下:
@@ -44,6 +46,9 @@ Future<StreamWithCancel<CCRespBody>> getChatRespStream(
   bool stream = true,
 }) async {
   try {
+    if (!dotenv.isInitialized) {
+      await dotenv.load(fileName: "assets/.env");
+    }
     var body = CCReqBody(model: model, messages: messages, stream: stream);
 
     var spec = platformUrls.where((e) => e.platform == platform).toList();
@@ -52,10 +57,30 @@ Future<StreamWithCancel<CCRespBody>> getChatRespStream(
     }
 
     var path = spec.first.url;
+    var key = "";
+    if (platform == ApiPlatform.lingyiwanwu) {
+      key = dotenv.env['LINGYIWANWU_API_KEY'] ?? '';
+    } else if (platform == ApiPlatform.deepseek) {
+      key = dotenv.env['DEEPSEEK_API_KEY'] ?? '';
+    }
+
     var header = {
       "Content-Type": "application/json",
-      "Authorization": "Bearer ${cusAKMap[platform]!}",
+      "Authorization": "Bearer $key",
     };
+    debugPrint("【AI 请求调试】平台: ${platform.name}, 路径: $path");
+    debugPrint("【AI 请求调试】Key 长度: ${key.length}");
+    if (key.length > 8) {
+      debugPrint(
+        "【AI 请求调试】Key 预览: ${key.substring(0, 4)}...${key.substring(key.length - 4)}",
+      );
+    }
+    if (header['Authorization'] != null &&
+        header['Authorization']!.length > 15) {
+      debugPrint(
+        "【AI 请求调试】Auth Header 前 15 位: ${header['Authorization']?.substring(0, 15)}...",
+      );
+    }
 
     var respData = await HttpUtils.post(
       path: path,

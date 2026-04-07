@@ -4,10 +4,13 @@
 /// 定义云平台
 /// 2024-07-08 这里的AI助手，估计只需要这个付费的就好了
 ///
-enum ApiPlatform { lingyiwanwu }
+enum ApiPlatform { lingyiwanwu, deepseek }
 
 // 模型对应的中文名
-final Map<ApiPlatform, String> cpNames = {ApiPlatform.lingyiwanwu: '零一万物'};
+final Map<ApiPlatform, String> cpNames = {
+  ApiPlatform.lingyiwanwu: '零一万物',
+  ApiPlatform.deepseek: 'DeepSeek',
+};
 
 // 云平台大模型post的地址
 List<CusUrlSpec> platformUrls = [
@@ -15,6 +18,11 @@ List<CusUrlSpec> platformUrls = [
     ApiPlatform.lingyiwanwu,
     "chat",
     "https://api.lingyiwanwu.com/v1/chat/completions",
+  ),
+  CusUrlSpec(
+    ApiPlatform.deepseek,
+    "chat",
+    "https://api.deepseek.com/v1/chat/completions",
   ),
 ];
 
@@ -31,7 +39,7 @@ class CusUrlSpec {
 ///
 
 // 对话模型列表(chat completion model)
-enum CCM { YiVision2, YiLightning }
+enum CCM { YiVision2, YiLightning, DeepSeekChat, DeepSeekReasoner }
 
 /// 对话模型规格
 class CCMSpec {
@@ -57,5 +65,15 @@ final Map<CCM, CCMSpec> ccmSpecList = {
     ApiPlatform.lingyiwanwu,
     "yi-lightning",
     'YiLightning',
+  ),
+  CCM.DeepSeekChat: CCMSpec(
+    ApiPlatform.deepseek,
+    "deepseek-chat",
+    'DeepSeek Chat',
+  ),
+  CCM.DeepSeekReasoner: CCMSpec(
+    ApiPlatform.deepseek,
+    "deepseek-reasoner",
+    'DeepSeek Reasoner',
   ),
 };
