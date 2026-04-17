@@ -11,6 +11,7 @@ import '../dio_client/interceptor_error.dart';
 import '../dio_client/cus_http_client.dart';
 import '../dio_client/cus_http_request.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../constants/constants.dart';
 import '../../models/paid_llm/common_chat_completion_state.dart';
 import '../../models/paid_llm/common_chat_model_spec.dart';
 // import '_self_keys.dart';
@@ -62,6 +63,22 @@ Future<StreamWithCancel<CCRespBody>> getChatRespStream(
       key = dotenv.env['LINGYIWANWU_API_KEY'] ?? '';
     } else if (platform == ApiPlatform.deepseek) {
       key = dotenv.env['DEEPSEEK_API_KEY'] ?? '';
+    }
+
+    // 2026-04-17 如果没有配置密钥，则直接返回提示信息，不要再请求接口导致 401
+    if (key.isEmpty) {
+      final streamErrorController = StreamController<CCRespBody>();
+      streamErrorController.add(
+        CCRespBody(
+          customReplyText: box.read('language') == 'en'
+              ? "AI analysis is currently unavailable because no API key is configured. You can still use other features of the app locally."
+              : "当前未配置 AI 密钥，AI 分析功能暂不可用。您可以继续正常使用应用的本地健康管理功能。",
+        ),
+      );
+      // 补一个结束标志
+      streamErrorController.add(CCRespBody(customReplyText: '[DONE]'));
+      streamErrorController.close();
+      return StreamWithCancel(streamErrorController.stream, () async {});
     }
 
     var header = {

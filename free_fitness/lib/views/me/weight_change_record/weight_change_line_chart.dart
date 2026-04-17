@@ -61,59 +61,67 @@ class _WeightChangeLineChartState extends State<WeightChangeLineChart> {
       isLoading = true;
     });
 
-    var tempList = await _userHelper.queryWeightTrendByUser(
-      userId: widget.user.userId,
-      startDate: startDate,
-      endDate: endDate,
-    );
+    try {
+      var tempList = await _userHelper.queryWeightTrendByUser(
+        userId: widget.user.userId,
+        startDate: startDate,
+        endDate: endDate,
+      );
 
-    if (!mounted) return;
-    setState(() {
-      weightTrends = tempList;
-      allSpots.clear();
+      if (!mounted) return;
+      setState(() {
+        weightTrends = tempList;
+        allSpots.clear();
 
-      if (weightTrends.isEmpty) {
-        isLoading = false;
-        return;
-      }
-
-      /// 反正构建spot的时候都要遍历，就在遍历是获取最大最小值了
-      // 获取到查询的体重列表中的最大值和最小值
-      // var minW = tempList.reduce((a, b) => a.weight < b.weight ? a : b);
-      // var minWindex = tempList.indexOf(minW);
-      // var maxW = tempList.reduce((a, b) => a.weight > b.weight ? a : b);
-      // var maxWindex = tempList.indexOf(maxW);
-
-      // 获取查询结果中体重最大值和最小值及其所在的索引数据
-      minWeight = tempList[0].weight;
-      maxWeight = tempList[0].weight;
-      int minWeightIndex = 0;
-      int maxWeightIndex = 0;
-
-      for (var i = 0; i < tempList.length; i++) {
-        var e = tempList[i];
-
-        // 在遍历中查询体重最大最小值及其索引
-        if (e.weight < minWeight) {
-          minWeight = e.weight;
-          minWeightIndex = i;
-        }
-        if (e.weight > maxWeight) {
-          maxWeight = e.weight;
-          maxWeightIndex = i;
+        if (weightTrends.isEmpty) {
+          isLoading = false;
+          return;
         }
 
-        // 所有的数据都构建折线的数据点
-        // flspot坐标x，y需要是double，这里的日期转为索引，显示的时候再索引转为日期。
-        // 所以查询的结果要安装日期升序排序
-        allSpots.add(FlSpot(i.toDouble(), e.weight));
+        /// 反正构建spot的时候都要遍历，就在遍历是获取最大最小值了
+        // 获取到查询的体重列表中的最大值和最小值
+        // var minW = tempList.reduce((a, b) => a.weight < b.weight ? a : b);
+        // var minWindex = tempList.indexOf(minW);
+        // var maxW = tempList.reduce((a, b) => a.weight > b.weight ? a : b);
+        // var maxWindex = tempList.indexOf(maxW);
+
+        // 获取查询结果中体重最大值和最小值及其所在的索引数据
+        minWeight = tempList[0].weight;
+        maxWeight = tempList[0].weight;
+        int minWeightIndex = 0;
+        int maxWeightIndex = 0;
+
+        for (var i = 0; i < tempList.length; i++) {
+          var e = tempList[i];
+
+          // 在遍历中查询体重最大最小值及其索引
+          if (e.weight < minWeight) {
+            minWeight = e.weight;
+            minWeightIndex = i;
+          }
+          if (e.weight > maxWeight) {
+            maxWeight = e.weight;
+            maxWeightIndex = i;
+          }
+
+          // 所有的数据都构建折线的数据点
+          // flspot坐标x，y需要是double，这里的日期转为索引，显示的时候再索引转为日期。
+          // 所以查询的结果要安装日期升序排序
+          allSpots.add(FlSpot(i.toDouble(), e.weight));
+        }
+
+        // 最大最小的值默认显示工具提示框
+        showingTooltipOnSpots = [minWeightIndex, maxWeightIndex];
+      });
+    } catch (e) {
+      debugPrint("Load weight data failed: $e");
+    } finally {
+      if (mounted) {
+        setState(() {
+          isLoading = false;
+        });
       }
-
-      // 最大最小的值默认显示工具提示框
-      showingTooltipOnSpots = [minWeightIndex, maxWeightIndex];
-
-      isLoading = false;
-    });
+    }
   }
 
   // 左侧的标签(体重)

@@ -1,6 +1,6 @@
 package com.freefitness.config;
 
-import com.freefitness.auth.JwtAuthFilter;
+import com.freefitness.auth.LocalUserFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -24,7 +24,7 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 @RequiredArgsConstructor
 public class SecurityConfig {
 
-    private final JwtAuthFilter jwtAuthFilter;
+    private final LocalUserFilter localUserFilter;
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
@@ -32,18 +32,11 @@ public class SecurityConfig {
             .csrf(AbstractHttpConfigurer::disable)
             .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
-                // 开放：注册、登录、Swagger
-                .requestMatchers(
-                    "/api/v1/auth/register",
-                    "/api/v1/auth/login",
-                    "/swagger-ui.html",
-                    "/swagger-ui/**",
-                    "/api-docs/**"
-                ).permitAll()
-                // 其余所有接口需要认证
-                .anyRequest().authenticated()
+                // 开放所有接口
+                .anyRequest().permitAll()
             )
-            .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+            // 2026-04-17 仅使用 LocalUserFilter 来识别 X-User-Id
+            .addFilterBefore(localUserFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }

@@ -12,19 +12,16 @@ class RequestInterceptor extends Interceptor {
     RequestInterceptorHandler handler,
   ) async {
     print('【onRequest】进入了dio的请求拦截器');
+    // 2026-04-17 注入 X-User-Id 请求头，用于后端区分多用户（无需密钥模式）
+    // 使用 CacheUser.userId 获取缓存的用户编号，如果没有则默认传 1
+    int userId = CacheUser.userId;
+    options.headers['X-User-Id'] = userId.toString();
 
-    // 2024-03-11 请求要带 authorization 自定义头
-    // 登录的时候要存入缓存，所以请求时要从缓存中拿，如果缓存中没有，采用登录预设的字符串
-    String? token = box.read(LocalStorageKey.token);
-
-    bool hasAuthHeader = options.headers.keys.any(
-      (key) => key.toLowerCase() == 'authorization',
-    );
-
-    if (token != null && token.isNotEmpty && !hasAuthHeader) {
-      options.headers['Authorization'] = 'Bearer $token';
+    // 2026-04-17 根据用户要求，彻底移除本地后端的 Authorization Token 注入逻辑，应用本地化运行。
+    // 注意：AI 等外部接口仍需保留 Authorization 头，所以这里只针对 apiBaseUrl 路径进行操作。
+    if (options.path.startsWith(apiBaseUrl)) {
+      options.headers.remove('Authorization');
     }
-
     return handler.next(options);
   }
 }

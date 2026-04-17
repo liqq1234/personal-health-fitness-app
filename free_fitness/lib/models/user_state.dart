@@ -58,8 +58,30 @@ class User {
     };
   }
 
-  // API 序列化别名
-  Map<String, dynamic> toJson() => toMap();
+  // API 序列化别名 (Update to use camelCase for backend compatibility)
+  Map<String, dynamic> toJson() {
+    return {
+      "userId": userId,
+      "userName": userName,
+      "userCode": userCode,
+      "gender": gender,
+      "avatar": avatar,
+      "password": password,
+      "description": description,
+      "dateOfBirth": dateOfBirth,
+      "height": height,
+      "heightUnit": heightUnit,
+      "currentWeight": currentWeight,
+      "targetWeight": targetWeight,
+      "weightUnit": weightUnit,
+      "rdaGoal": rdaGoal,
+      "proteinGoal": proteinGoal,
+      "fatGoal": fatGoal,
+      "choGoal": choGoal,
+      "actionRestTime": actionRestTime,
+    };
+  }
+
   factory User.fromJson(Map<String, dynamic> json) => User.fromMap(json);
 
   // 给表单初始化值得时候，需要转类型
@@ -158,7 +180,18 @@ class IntakeDailyGoal {
     };
   }
 
-  Map<String, dynamic> toJson() => toMap();
+  Map<String, dynamic> toJson() {
+    return {
+      "intakeDailyGoalId": intakeDailyGoalId,
+      "userId": userId,
+      "dayOfWeek": dayOfWeek,
+      "rdaDailyGoal": rdaDailyGoal,
+      "proteinDailyGoal": proteinDailyGoal,
+      "fatDailyGoal": fatDailyGoal,
+      "choDailyGoal": choDailyGoal,
+    };
+  }
+
   factory IntakeDailyGoal.fromJson(Map<String, dynamic> json) =>
       IntakeDailyGoal.fromMap(json);
 
@@ -218,7 +251,19 @@ class WeightTrend {
     };
   }
 
-  Map<String, dynamic> toJson() => toMap();
+  Map<String, dynamic> toJson() {
+    return {
+      'weightTrendId': weightTrendId,
+      'userId': userId,
+      'weight': weight,
+      'weightUnit': weightUnit,
+      'height': height,
+      'heightUnit': heightUnit,
+      'bmi': bmi,
+      'gmtCreate': gmtCreate,
+    };
+  }
+
   factory WeightTrend.fromJson(Map<String, dynamic> json) =>
       WeightTrend.fromMap(json);
 

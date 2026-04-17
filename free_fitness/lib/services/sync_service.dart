@@ -13,6 +13,7 @@ class SyncService {
   final _dbHelper = DBHealthHelper();
 
   Future<void> syncData() async {
+    if (!isCloudSyncEnabled) return;
     try {
       int currentUserId = CacheUser.userId;
 
@@ -78,6 +79,7 @@ class SyncService {
 
   // 4. 后端模拟走路并拉取结果
   Future<void> simulateBackendWalk() async {
+    if (!isCloudSyncEnabled) return;
     try {
       // 请求后端增加模拟步数
       var response = await HttpUtils.post(
@@ -103,6 +105,7 @@ class SyncService {
 
   // 5. 从后端拉取最新步数
   Future<void> pullSteps() async {
+    if (!isCloudSyncEnabled) return;
     try {
       String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
       var response = await HttpUtils.get(

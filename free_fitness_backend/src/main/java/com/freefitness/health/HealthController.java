@@ -100,6 +100,8 @@ public class HealthController {
     @PostMapping("/sync")
     public Result<Map<String, Object>> sync(@AuthenticationPrincipal Long userId,
                                             @RequestBody SyncRequest req) {
+        if (userId == null) userId = req.getUserId();
+        if (userId == null) return Result.error("未识别的用户ID (X-User-Id header missing)");
         req.setUserId(userId);
         return Result.success(healthService.syncData(userId, req));
     }

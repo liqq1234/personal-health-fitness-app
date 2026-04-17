@@ -76,4 +76,10 @@ windows
 **_self*
 
 
+# 密钥与环境配置
+.env
+.env*
+security_keys*
+
+
 android/app/.cxx

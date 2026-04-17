@@ -67,17 +67,20 @@ class DBHealthHelper {
     );
 
     // 2. 异步同步到云端
-    try {
-      await HttpUtils.post(
-        path: "${ApiEndpoints.healthSync}/steps",
-        data: steps.toJson(),
-        showLoading: false,
-      );
-      return 1;
-    } catch (e) {
-      print("Sync steps failed: $e");
-      return 0;
+    if (isCloudSyncEnabled) {
+      try {
+        await HttpUtils.post(
+          path: "${ApiEndpoints.healthSync}/steps",
+          data: steps.toJson(),
+          showLoading: false,
+        );
+        return 1;
+      } catch (e) {
+        print("Sync steps failed: $e");
+        return 0;
+      }
     }
+    return 1;
   }
 
   Future<List<DailySteps>> queryStepsList({
@@ -111,7 +114,7 @@ class DBHealthHelper {
     }
 
     // 2. 如果本地没有（比如新安装），则尝试从云端拉取 (仅当提供了日期范围时)
-    if (startDate != null && endDate != null) {
+    if (isCloudSyncEnabled && startDate != null && endDate != null) {
       try {
         var response = await HttpUtils.get(
           path: "${ApiEndpoints.healthSync}/steps",
@@ -159,17 +162,20 @@ class DBHealthHelper {
     );
 
     // 2. 异步同步到云端
-    try {
-      await HttpUtils.post(
-        path: "${ApiEndpoints.healthSync}/sleeps",
-        data: record.toJson(),
-        showLoading: false,
-      );
-      return 1;
-    } catch (e) {
-      print("Sync sleep failed: $e");
-      return 0;
+    if (isCloudSyncEnabled) {
+      try {
+        await HttpUtils.post(
+          path: "${ApiEndpoints.healthSync}/sleeps",
+          data: record.toJson(),
+          showLoading: false,
+        );
+        return 1;
+      } catch (e) {
+        print("Sync sleep failed: $e");
+        return 0;
+      }
     }
+    return 1;
   }
 
   Future<List<SleepRecord>> querySleepList({
@@ -206,29 +212,31 @@ class DBHealthHelper {
     }
 
     // 2. 如果本地没有，则尝试从云端拉取
-    try {
-      var response = await HttpUtils.get(
-        path: "${ApiEndpoints.healthSync}/sleeps",
-        queryParameters: {"limit": limit, "userId": CacheUser.userId},
-        showLoading: false,
-      );
-      if (response != null &&
-          response['data'] != null &&
-          response['data'] is List) {
-        var cloudList = (response['data'] as List)
-            .map((e) => SleepRecord.fromMap(e))
-            .toList();
-        for (var s in cloudList) {
-          await db.insert(
-            HealthCoreDdl.tableNameSleep,
-            s.toMap(),
-            conflictAlgorithm: ConflictAlgorithm.replace,
-          );
+    if (isCloudSyncEnabled) {
+      try {
+        var response = await HttpUtils.get(
+          path: "${ApiEndpoints.healthSync}/sleeps",
+          queryParameters: {"limit": limit, "userId": CacheUser.userId},
+          showLoading: false,
+        );
+        if (response != null &&
+            response['data'] != null &&
+            response['data'] is List) {
+          var cloudList = (response['data'] as List)
+              .map((e) => SleepRecord.fromMap(e))
+              .toList();
+          for (var s in cloudList) {
+            await db.insert(
+              HealthCoreDdl.tableNameSleep,
+              s.toMap(),
+              conflictAlgorithm: ConflictAlgorithm.replace,
+            );
+          }
+          return cloudList;
         }
-        return cloudList;
+      } catch (e) {
+        print("Query sleep from cloud failed: $e");
       }
-    } catch (e) {
-      print("Query sleep from cloud failed: $e");
     }
     return [];
   }
@@ -247,17 +255,20 @@ class DBHealthHelper {
     );
 
     // 2. 云端同步
-    try {
-      await HttpUtils.post(
-        path: "${ApiEndpoints.healthSync}/diet-logs",
-        data: log.toJson(),
-        showLoading: false,
-      );
-      return 1;
-    } catch (e) {
-      print("Sync diet failed: $e");
-      return 0;
+    if (isCloudSyncEnabled) {
+      try {
+        await HttpUtils.post(
+          path: "${ApiEndpoints.healthSync}/diet-logs",
+          data: log.toJson(),
+          showLoading: false,
+        );
+        return 1;
+      } catch (e) {
+        print("Sync diet failed: $e");
+        return 0;
+      }
     }
+    return 1;
   }
 
   Future<List<DietLog>> queryDietList({
@@ -292,7 +303,7 @@ class DBHealthHelper {
     }
 
     // 2. 云端查找 (仅当提供 date 时)
-    if (date != null) {
+    if (isCloudSyncEnabled && date != null) {
       try {
         var response = await HttpUtils.get(
           path: "${ApiEndpoints.healthSync}/diet-logs",
@@ -326,35 +337,40 @@ class DBHealthHelper {
   ///
 
   Future<int> insertExerciseSession(ExerciseSession session) async {
-    try {
-      await HttpUtils.post(
-        path: "${ApiEndpoints.healthSync}/exercise-sessions",
-        data: session.toJson(),
-        showLoading: false,
-      );
-      return 1;
-    } catch (e) {
-      print("Sync exercise session failed: $e");
-      return 0;
+    if (isCloudSyncEnabled) {
+      try {
+        await HttpUtils.post(
+          path: "${ApiEndpoints.healthSync}/exercise-sessions",
+          data: session.toJson(),
+          showLoading: false,
+        );
+        return 1;
+      } catch (e) {
+        print("Sync exercise session failed: $e");
+        return 0;
+      }
     }
+    return 1;
   }
 
   Future<List<ExerciseSession>> queryExerciseSessions() async {
-    try {
-      var response = await HttpUtils.get(
-        path: "${ApiEndpoints.healthSync}/exercise-sessions",
-        queryParameters: {"userId": CacheUser.userId},
-        showLoading: false,
-      );
-      if (response != null &&
-          response['data'] != null &&
-          response['data'] is List) {
-        return (response['data'] as List)
-            .map((e) => ExerciseSession.fromMap(e))
-            .toList();
+    if (isCloudSyncEnabled) {
+      try {
+        var response = await HttpUtils.get(
+          path: "${ApiEndpoints.healthSync}/exercise-sessions",
+          queryParameters: {"userId": CacheUser.userId},
+          showLoading: false,
+        );
+        if (response != null &&
+            response['data'] != null &&
+            response['data'] is List) {
+          return (response['data'] as List)
+              .map((e) => ExerciseSession.fromMap(e))
+              .toList();
+        }
+      } catch (e) {
+        print("Query exercise sessions failed: $e");
       }
-    } catch (e) {
-      print("Query exercise sessions failed: $e");
     }
     return [];
   }
