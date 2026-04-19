@@ -351,21 +351,31 @@ public class HealthService {
         List<SleepRecord> biWeeklySleeps = sleepRepo.findByUserIdOrderByStartTimeDesc(userId, PageRequest.of(0, 14));
         double totalDuration = biWeeklySleeps.stream().mapToDouble(SleepRecord::getDurationHours).sum();
         double avgDuration = biWeeklySleeps.isEmpty() ? 0 : totalDuration / biWeeklySleeps.size();
-        double avgQuality = biWeeklySleeps.isEmpty() ? 0 : biWeeklySleeps.stream()
-                .mapToInt(r -> r.getQuality() != null ? r.getQuality() : 0)
+
+        // 仅过滤出有质量评分的记录进行平均
+        List<SleepRecord> qualityRecords = biWeeklySleeps.stream()
+                .filter(r -> r.getQuality() != null && r.getQuality() > 0)
+                .toList();
+
+        double avgQuality = qualityRecords.isEmpty() ? -1 : qualityRecords.stream()
+                .mapToInt(SleepRecord::getQuality)
                 .average().orElse(0);
 
-        // 计算规律性 (简单逻辑：检查入睡时间的标准差，或者只是对比统计)
-        long inconsistentCount = 0;
-        // 这里可以实现更复杂的规律性算法
-        
-        String summary = String.format("用户在过去两周内：共有 %d 条睡眠记录，平均每晚时长 %.1f 小时，平均质量评分 %.1f/100。",
-                biWeeklySleeps.size(), avgDuration, avgQuality);
+        // 评分逻辑：时长占 80 分，质量占 20 分
+        int score = (int) (avgDuration >= 7 && avgDuration <= 9.5 ? 80 : 60);
 
-        // 评分逻辑
-        int score = (int) (avgDuration >= 7 && avgDuration <= 9 ? 80 : 60);
-        score += (avgQuality / 5);
+        // 如果有质量分，按比例加成；如果没有质量分，默认给一个中性能（15/20）以避免显示为极低分
+        if (avgQuality >= 0) {
+            score += (avgQuality / 5.0);
+        } else {
+            score += 15; // 补偿分
+        }
+
         if (score > 100) score = 100;
+
+        String qualityInfo = avgQuality >= 0 ? String.format("%.1f/100", avgQuality) : "未记录数据";
+        String summary = String.format("用户在过去两周内：共有 %d 条睡眠记录，平均每晚时长 %.1f 小时，综合睡眠得分 %d/100，其中睡眠质量评价：%s。",
+                biWeeklySleeps.size(), avgDuration, score, qualityInfo);
 
         // 获取用户信息
         Map<String, Object> userProfile = new java.util.HashMap<>();
