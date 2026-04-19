@@ -159,6 +159,11 @@ class _ActionFollowPracticeWithTTSState
       dayNumber = widget.dayNumber;
       group = widget.group;
 
+      // 如果动作列表是空的，直接避免渲染后续内容
+      if (actions.isEmpty) {
+        debugPrint("Warning: actionList is empty.");
+      }
+
       // 进入此跟练页面自动开始
       startedMoment = DateTime.now();
       stageStartedMoment = DateTime.now();
@@ -179,11 +184,15 @@ class _ActionFollowPracticeWithTTSState
   /// 获取用户自定义的间隔耗时
   ///
   void getUserConfig() async {
-    var tempUser = (await _userHelper.queryUser(userId: CacheUser.userId))!;
+    var tempUser = await _userHelper.queryUser(userId: CacheUser.userId);
 
+    if (tempUser == null) return;
     if (!mounted) return;
+
     setState(() {
       _defaultCusRestTime = tempUser.actionRestTime ?? 10;
+      // 同时同步当次休息时间
+      _cusRestTime = _defaultCusRestTime;
     });
   }
 
@@ -513,15 +522,17 @@ class _ActionFollowPracticeWithTTSState
         // 这里的盒子，只是单纯区分休息时显示下一个要小点，跟练时图片大点
         flex: 3,
         child: Center(
-          child: Icon(
-            actions[0].exercise.category == '跑步'
-                ? Icons.directions_run
-                : actions[0].exercise.category == '骑行'
-                ? Icons.directions_bike
-                : Icons.fitness_center,
-            size: 100.sp,
-            color: Theme.of(context).primaryColor.withOpacity(0.5),
-          ),
+          child: actions.isEmpty
+              ? const SizedBox.shrink()
+              : Icon(
+                  actions[0].exercise.category == '跑步'
+                      ? Icons.directions_run
+                      : actions[0].exercise.category == '骑行'
+                      ? Icons.directions_bike
+                      : Icons.fitness_center,
+                  size: 100.sp,
+                  color: Theme.of(context).primaryColor.withOpacity(0.5),
+                ),
         ),
       ),
       Expanded(
@@ -542,7 +553,9 @@ class _ActionFollowPracticeWithTTSState
                   ),
                 ),
                 TextSpan(
-                  text: actions[_currentIndex + 1].exercise.exerciseName,
+                  text: actions.isEmpty
+                      ? ""
+                      : actions[_currentIndex + 1].exercise.exerciseName,
                   style: TextStyle(
                     color: Theme.of(context).primaryColor,
                     fontSize: CusFontSizes.flagMedium,
@@ -590,9 +603,11 @@ class _ActionFollowPracticeWithTTSState
                 autoStart: true,
                 // 当进入预备倒计时时，开始语音提示.
                 onStart: () {
-                  var prepareText =
-                      "${CusAL.of(context).followTtsLabel('0')} ${actions.first.exercise.exerciseName}";
-                  _speak(prepareText);
+                  if (actions.isNotEmpty) {
+                    var prepareText =
+                        "${CusAL.of(context).followTtsLabel('0')} ${actions.first.exercise.exerciseName}";
+                    _speak(prepareText);
+                  }
                 },
                 onComplete: () {
                   if (!mounted) return;
@@ -676,7 +691,9 @@ class _ActionFollowPracticeWithTTSState
                             (plan?.sportType != null &&
                                 plan!.sportType!.isNotEmpty)
                             ? "${plan!.sportType}中"
-                            : actions[_currentIndex].exercise.exerciseName,
+                            : (actions.isNotEmpty
+                                  ? actions[_currentIndex].exercise.exerciseName
+                                  : ""),
                         style: TextStyle(
                           color: Theme.of(context).primaryColor,
                           fontSize: CusFontSizes.flagMedium,
