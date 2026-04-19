@@ -12,7 +12,6 @@ import '../../models/cus_app_localizations.dart';
 import '../../models/user_state.dart';
 import 'more_settings/index.dart';
 import 'user_info/index.dart';
-import 'user_info/modify_user/index.dart';
 import '../auth/login_page.dart';
 import '../../core/utils/file_utils.dart';
 import 'account_management/index.dart';
@@ -151,25 +150,7 @@ class _UserAndSettingsState extends State<UserAndSettings> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(CusAL.of(context).moduleTitles('3')),
-        actions: [
-          // 新增用户(默认就一个用户，保存多个用户的数据就需要可以新增其他用户)
-          IconButton(
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const ModifyUserPage()),
-              ).then((value) {
-                if (value == true) {
-                  _queryLoginedUserInfo();
-                }
-              });
-            },
-            icon: const Icon(Icons.add),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text(CusAL.of(context).moduleTitles('3'))),
       body: isLoading
           ? buildLoader(isLoading)
           : SingleChildScrollView(
