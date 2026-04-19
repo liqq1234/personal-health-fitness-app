@@ -38,9 +38,6 @@ class _UserAndSettingsState extends State<UserAndSettings> {
 
   bool isLoading = false;
 
-  // 切换用户时，选择的用户
-  User? selectedUser;
-
   @override
   void initState() {
     super.initState();
@@ -87,94 +84,6 @@ class _UserAndSettingsState extends State<UserAndSettings> {
       _avatarPath = avatarPath;
       isLoading = false;
     });
-  }
-
-  // 弹窗切换用户
-  Future<void> _switchUser() async {
-    var userList = await _userHelper.queryUserList();
-
-    if (!mounted) return;
-    if (userList != null && userList.isEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text(CusAL.of(context).tipLabel),
-            content: Text(CusAL.of(context).noOtherUser),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  if (!mounted) return;
-                  Navigator.pop(context, true);
-                },
-                child: Text(CusAL.of(context).confirmLabel),
-              ),
-            ],
-          );
-        },
-      );
-    } else if (userList != null && userList.isNotEmpty) {
-      showDialog(
-        context: context,
-        builder: (context) {
-          return AlertDialog(
-            title: Text(CusAL.of(context).switchUser),
-            content: DropdownButtonFormField<User>(
-              value: userList.firstWhere(
-                (e) => e.userId == currentUserId,
-                orElse: () => userList.first,
-              ),
-              decoration: const InputDecoration(
-                // 设置透明底色
-                filled: true,
-                fillColor: Colors.transparent,
-              ),
-              items: userList.map((User user) {
-                return DropdownMenuItem<User>(
-                  value: user,
-                  child: Text(user.userName),
-                );
-              }).toList(),
-              onChanged: (User? value) async {
-                setState(() {
-                  selectedUser = value;
-                });
-              },
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  if (!mounted) return;
-                  Navigator.pop(context, false);
-                },
-                child: Text(CusAL.of(context).cancelLabel),
-              ),
-              TextButton(
-                onPressed: () {
-                  if (!mounted) return;
-                  Navigator.pop(context, true);
-                },
-                child: Text(CusAL.of(context).confirmLabel),
-              ),
-            ],
-          );
-        },
-      ).then((value) async {
-        // 如果有返回值且为true，
-        if (value != null && value == true) {
-          // 修改缓存的用户编号
-          CacheUser.updateUserId(selectedUser!.userId!);
-          CacheUser.updateUserName(selectedUser!.userName);
-          CacheUser.updateUserCode(selectedUser!.userCode ?? "");
-
-          // 重新缓存当前用户编号和查询用户信息
-          setState(() {
-            currentUserId = CacheUser.userId;
-            _queryLoginedUserInfo();
-          });
-        }
-      });
-    }
   }
 
   // 修改头像
@@ -245,8 +154,6 @@ class _UserAndSettingsState extends State<UserAndSettings> {
       appBar: AppBar(
         title: Text(CusAL.of(context).moduleTitles('3')),
         actions: [
-          // 切换用户(切换后缓存的用户编号也得修改)
-          IconButton(onPressed: _switchUser, icon: const Icon(Icons.toggle_on)),
           // 新增用户(默认就一个用户，保存多个用户的数据就需要可以新增其他用户)
           IconButton(
             onPressed: () {
