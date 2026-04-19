@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:form_builder_validators/form_builder_validators.dart';
+import 'package:intl/intl.dart';
 
 import '../../../core/constants/constants.dart';
 import '../../../core/storage/db_training_helper.dart';
@@ -10,6 +12,7 @@ import '../../../core/utils/tools.dart';
 import '../../../layout/themes/cus_font_size.dart';
 import '../../../models/cus_app_localizations.dart';
 import '../../../models/training_state.dart';
+import '../../../services/notification_service.dart';
 import 'group_list.dart';
 
 ///
@@ -267,6 +270,19 @@ class _TrainingPlansState extends State<TrainingPlans> {
                   color: Theme.of(context).textTheme.bodyMedium?.color,
                 ),
               ),
+              if (planItem.plan.sportType != null)
+                TextSpan(
+                  text: '  [${planItem.plan.sportType}]',
+                  style: TextStyle(color: Colors.blue[500]),
+                ),
+              if (planItem.plan.startTime != null)
+                TextSpan(
+                  text: ' \n⏰ ${planItem.plan.startTime}',
+                  style: TextStyle(
+                    fontSize: CusFontSizes.pageAppendix,
+                    color: Colors.orange[700],
+                  ),
+                ),
             ],
           ),
         ),
@@ -431,6 +447,65 @@ class _TrainingPlansState extends State<TrainingPlans> {
                 FormBuilderValidators.required(),
               ]),
             ),
+            cusFormBuilerTextField(
+              "sport_type",
+              labelText: CusAL.of(context).modifyPlanLabels('8'),
+              initialValue: planItem?.sportType,
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: cusFormBuilerTextField(
+                    "total_sets",
+                    labelText: CusAL.of(context).modifyPlanLabels('9'),
+                    initialValue: planItem?.totalSets?.toString(),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+                Expanded(
+                  child: cusFormBuilerTextField(
+                    "rest_duration",
+                    labelText: CusAL.of(context).modifyPlanLabels('10'),
+                    initialValue: planItem?.restDuration?.toString(),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+              ],
+            ),
+            Row(
+              children: [
+                Expanded(
+                  child: FormBuilderDateTimePicker(
+                    name: "start_time",
+                    inputType: InputType.time,
+                    initialValue: planItem?.startTime != null
+                        ? DateTime(
+                            2000,
+                            1,
+                            1,
+                            int.parse(planItem!.startTime!.split(':')[0]),
+                            int.parse(planItem!.startTime!.split(':')[1]),
+                          )
+                        : null,
+                    decoration: const InputDecoration(labelText: '训练开始时间'),
+                    format: DateFormat("HH:mm"),
+                    valueTransformer: (val) =>
+                        val != null ? DateFormat("HH:mm").format(val) : null,
+                  ),
+                ),
+                Expanded(
+                  child: cusFormBuilerTextField(
+                    "reminder_minutes",
+                    labelText: CusAL.of(context).modifyPlanLabels('11'),
+                    initialValue: planItem?.reminderMinutes?.toString(),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
       ),
@@ -452,6 +527,9 @@ class _TrainingPlansState extends State<TrainingPlans> {
           var planId = await _dbHelper.insertTrainingPlan(temp);
           temp.planId = planId;
 
+          // 预约提醒
+          _schedulePlanReminder(temp);
+
           if (!mounted) return;
           Navigator.of(context).pop();
 
@@ -469,6 +547,9 @@ class _TrainingPlansState extends State<TrainingPlans> {
           temp.planId = planItem.planId!;
           await _dbHelper.updateTrainingPlanById(planItem.planId!, temp);
 
+          // 预约提醒
+          _schedulePlanReminder(temp);
+
           // 如果是修改就返回训练组列表，而不是进入动作列表
           if (!mounted) return;
           Navigator.of(context).pop();
@@ -482,6 +563,29 @@ class _TrainingPlansState extends State<TrainingPlans> {
           e.toString(),
         );
       }
+    }
+  }
+
+  void _schedulePlanReminder(TrainingPlan plan) {
+    if (plan.startTime != null && plan.reminderMinutes != null) {
+      final timeParts = plan.startTime!.split(':');
+      var hour = int.parse(timeParts[0]);
+      var minute = int.parse(timeParts[1]);
+
+      // 提前提醒分钟
+      var totalMinutes = hour * 60 + minute - plan.reminderMinutes!;
+      if (totalMinutes < 0) totalMinutes += 24 * 60;
+
+      hour = totalMinutes ~/ 60;
+      minute = totalMinutes % 60;
+
+      NotificationService().scheduleDailyTrainingReminder(
+        id: plan.planId ?? 100, // 使用 planId 作为通知 ID
+        title: '训练提醒',
+        body: '你的训练计划 "${plan.planName}" 即将开始，请做好准备！',
+        hour: hour,
+        minute: minute,
+      );
     }
   }
 }

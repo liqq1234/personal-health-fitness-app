@@ -12,7 +12,6 @@ import '../../../models/user_state.dart';
 import 'weight_change_line_chart.dart';
 import 'weight_record_manage.dart';
 
-// 取这个名字主要和标的基本类 weightTrend 全然区别开
 class WeightChangeRecord extends StatefulWidget {
   final User userInfo;
 
@@ -28,64 +27,58 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
   double _currentWeight = 0;
   double _currentHeight = 0;
 
-  late User user;
-
-  // 查询数据的时候不显示图表
-  bool isLoading = false;
-
-  // 用于强制更新体重趋势图组件
-  Key _lineChartKey = UniqueKey();
+  // 使用 ValueNotifier 隔离关键状态
+  final ValueNotifier<User> _userNotifier = ValueNotifier<User>(
+    User(userName: ""),
+  );
+  final ValueNotifier<bool> _loadingNotifier = ValueNotifier<bool>(false);
+  final ValueNotifier<Key> _chartKeyNotifier = ValueNotifier<Key>(UniqueKey());
 
   @override
   void initState() {
     super.initState();
-
-    user = widget.userInfo;
-    _currentWeight = user.currentWeight ?? 70;
-    _currentHeight = user.height ?? 170;
+    _userNotifier.value = widget.userInfo;
+    _currentWeight = widget.userInfo.currentWeight ?? 70;
+    _currentHeight = widget.userInfo.height ?? 170;
   }
 
-  // 刷新用户信息，以便能重新加载最新的当前体重身高
+  @override
+  void dispose() {
+    _userNotifier.dispose();
+    _loadingNotifier.dispose();
+    _chartKeyNotifier.dispose();
+    super.dispose();
+  }
+
   Future<void> _refreshUser() async {
-    setState(() {
-      isLoading = true;
-    });
+    if (_loadingNotifier.value) return;
+    _loadingNotifier.value = true;
 
-    var tempUser = (await _userHelper.queryUser(
-      userId: CacheUser.userId,
-    ))!;
-
-    if (!mounted) return;
-    setState(() {
-      user = tempUser;
-
-      _currentWeight = user.currentWeight ?? 70;
-      _currentHeight = user.height ?? 170;
-      isLoading = false;
-
-      // 强制更新体重趋势图组件
-      _lineChartKey = UniqueKey();
-    });
+    try {
+      var tempUser = await _userHelper.queryUser(userId: CacheUser.userId);
+      if (tempUser != null && mounted) {
+        _userNotifier.value = tempUser;
+        _currentWeight = tempUser.currentWeight ?? 70;
+        _currentHeight = tempUser.height ?? 170;
+        _chartKeyNotifier.value = UniqueKey();
+      }
+    } finally {
+      if (mounted) _loadingNotifier.value = false;
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text(CusAL.of(context).settingLabels('1')),
-      ),
+      appBar: AppBar(title: Text(CusAL.of(context).settingLabels('1'))),
       body: SingleChildScrollView(
         child: Padding(
           padding: EdgeInsets.all(5.sp),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              /// 体重趋势折线图区域
               ...buildWeghtLineArea(),
-
-              /// BMI区域
               ...buildBmiArea(),
-
               SizedBox(height: 20.sp),
             ],
           ),
@@ -96,7 +89,6 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
 
   List<Widget> buildWeghtLineArea() {
     return [
-      // 体重区块的标题和按钮
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -112,47 +104,49 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
             children: [
               ElevatedButton(
                 onPressed: () {
-                  // 这里只显示修改体重
                   Navigator.push(
                     context,
                     MaterialPageRoute(
-                      builder: (context) => WeightRecordManage(user: user),
+                      builder: (context) =>
+                          WeightRecordManage(user: _userNotifier.value),
                     ),
-                  ).then(
-                    (value) async {
-                      await _refreshUser();
-                    },
-                  );
+                  ).then((value) => _refreshUser());
                 },
                 child: Text(CusAL.of(context).manageLabel),
               ),
               SizedBox(width: 10.sp),
               ElevatedButton(
                 onPressed: () {
-                  // 这里只显示修改体重
-                  _buildModifyWeightOrBmiDialog(onlyWeight: true).then(
-                    (value) async {
-                      // 强制重新加载体重变化图表
-                      await _refreshUser();
-                    },
-                  );
+                  _buildModifyWeightOrBmiDialog(
+                    onlyWeight: true,
+                  ).then((value) => _refreshUser());
                 },
                 child: Text(CusAL.of(context).recordLabel),
               ),
             ],
-          )
+          ),
         ],
       ),
-      // 显示体重趋势图
-      isLoading
-          ? buildLoader(isLoading)
-          : WeightChangeLineChart(key: _lineChartKey, user: user),
+      ValueListenableBuilder<bool>(
+        valueListenable: _loadingNotifier,
+        builder: (context, isLoading, _) {
+          if (isLoading) return buildLoader(true);
+          return ValueListenableBuilder<Key>(
+            valueListenable: _chartKeyNotifier,
+            builder: (context, chartKey, _) {
+              return WeightChangeLineChart(
+                key: chartKey,
+                user: _userNotifier.value,
+              );
+            },
+          );
+        },
+      ),
     ];
   }
 
   List<Widget> buildBmiArea() {
     return [
-      // BMI标题和按钮行
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
@@ -177,38 +171,30 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
           ),
           ElevatedButton(
             onPressed: () {
-              // 这里要显示修改身高和体重
-              _buildModifyWeightOrBmiDialog(onlyWeight: false).then(
-                (value) async {
-                  // 强制重新加载体重变化图表
-                  await _refreshUser();
-                },
-              );
+              _buildModifyWeightOrBmiDialog(
+                onlyWeight: false,
+              ).then((value) => _refreshUser());
             },
             child: Text(CusAL.of(context).recordLabel),
           ),
         ],
       ),
-      // BMI分段区间容器
-      Center(child: _buildBmiRangeContainer(context)),
+      ValueListenableBuilder<User>(
+        valueListenable: _userNotifier,
+        builder: (context, user, _) {
+          return Center(child: _buildBmiRangeContainer(context, user));
+        },
+      ),
     ];
   }
 
-  // 构建bmi色块容器
-  SizedBox _buildBmiRangeContainer(BuildContext context) {
-    // 存的是kg
+  SizedBox _buildBmiRangeContainer(BuildContext context, User user) {
     var tempWeight = user.currentWeight ?? 0;
-    // 存的是cm，所以要/100
     var tempHeight = (user.height ?? 0) / 100;
-    var bmi = (tempWeight / (tempHeight * tempHeight));
+    var bmi = (tempHeight == 0)
+        ? 0.0
+        : (tempWeight / (tempHeight * tempHeight));
 
-    /// 注意，这里的所有内容都是基于
-    ///   BMI 范围: 偏瘦<=18.4;正常18.5~23.9;过重24.0~27.9;肥胖>=28.0
-    ///   显示的长度15-40
-    ///   对应矩形长度：0-300.sp
-    ///   然后每个范围显示不同的颜色，指针也是使用padding进行偏移描点。
-    /// 改一个，全都乱，尤其是flex
-    /// 2023-12-18 几个区间用计算式
     var uwtFlex = ((18.4 - 15) / (40 - 15) * 300).toInt();
     var nwtFlex = ((23.9 - 18.4) / (40 - 15) * 300).toInt();
     var owtFlex = ((28 - 23.9) / (40 - 15) * 300).toInt();
@@ -235,8 +221,8 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
               left: bmi < 15
                   ? 0
                   : bmi > 40
-                      ? 300
-                      : ((bmi - 15) / (40 - 15) * 300.sp),
+                  ? 300.sp
+                  : ((bmi - 15) / (40 - 15) * 300.sp),
             ),
             child: Icon(Icons.arrow_downward, size: CusIconSizes.iconNormal),
           ),
@@ -322,19 +308,17 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
     );
   }
 
-  // 输入体重或bmi值的弹窗
   Future _buildModifyWeightOrBmiDialog({bool onlyWeight = true}) async {
     await showModalBottomSheet(
       isScrollControlled: true,
       context: context,
       builder: (BuildContext context) {
         return StatefulBuilder(
-          builder: (context, setState) {
+          builder: (context, setDialogState) {
             return SizedBox(
               height: (onlyWeight ? 220.sp : 380.sp),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisSize: MainAxisSize.min,
                 children: <Widget>[
                   Card(
@@ -351,7 +335,7 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
                           decimalPlaces: 1,
                           itemHeight: 40,
                           onChanged: (value) =>
-                              setState(() => _currentWeight = value),
+                              setDialogState(() => _currentWeight = value),
                         ),
                       ],
                     ),
@@ -371,26 +355,20 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
                             decimalPlaces: 1,
                             itemHeight: 40,
                             onChanged: (value) =>
-                                setState(() => _currentHeight = value),
+                                setDialogState(() => _currentHeight = value),
                           ),
                         ],
                       ),
                     ),
                   ElevatedButton(
                     onPressed: () async {
-                      setState(() {
-                        user.height = _currentHeight;
-                        user.currentWeight = _currentWeight;
-                      });
-
-                      // ？？？这里应该判断是否修改成功
-                      // 修改用户基本信息
+                      var user = _userNotifier.value;
+                      user.height = _currentHeight;
+                      user.currentWeight = _currentWeight;
                       await _userHelper.updateUser(user);
-
-                      var bmi = _currentWeight /
+                      var bmi =
+                          _currentWeight /
                           (_currentHeight / 100 * _currentHeight / 100);
-
-                      // 新增体重趋势信息
                       var temp = WeightTrend(
                         userId: CacheUser.userId,
                         weight: _currentWeight,
@@ -398,10 +376,8 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
                         height: _currentHeight,
                         heightUnit: 'cm',
                         bmi: bmi,
-                        // 日期随机，带上一个插入时的time
                         gmtCreate: getCurrentDateTime(),
                       );
-
                       try {
                         await _userHelper.insertWeightTrendList([temp]);
                         if (!context.mounted) return;
@@ -427,32 +403,29 @@ class _WeightChangeRecordState extends State<WeightChangeRecord> {
   }
 }
 
-// 构建bmi文字
 Text buildWeightBmiText(double bmi, BuildContext context) {
-  if (bmi < 18.4) {
+  if (bmi < 18.4)
     return Text(
       CusAL.of(context).bmiLabels("0"),
       style: TextStyle(color: Colors.grey, fontSize: CusFontSizes.itemTitle),
     );
-  } else if (bmi < 23.9) {
+  if (bmi < 23.9)
     return Text(
       CusAL.of(context).bmiLabels("1"),
       style: TextStyle(color: Colors.green, fontSize: CusFontSizes.itemTitle),
     );
-  } else if (bmi < 28) {
+  if (bmi < 28)
     return Text(
       CusAL.of(context).bmiLabels("2"),
       style: TextStyle(color: Colors.blue, fontSize: CusFontSizes.itemTitle),
     );
-  } else if (bmi < 35) {
+  if (bmi < 35)
     return Text(
       CusAL.of(context).bmiLabels("3"),
       style: TextStyle(color: Colors.yellow, fontSize: CusFontSizes.itemTitle),
     );
-  } else {
-    return Text(
-      CusAL.of(context).bmiLabels("4"),
-      style: TextStyle(color: Colors.red, fontSize: CusFontSizes.itemTitle),
-    );
-  }
+  return Text(
+    CusAL.of(context).bmiLabels("4"),
+    style: TextStyle(color: Colors.red, fontSize: CusFontSizes.itemTitle),
+  );
 }

@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByUserCode(String userCode);
     boolean existsByUserCode(String userCode);
+    
+    java.util.List<User> findByUserNameContainingOrUserCodeContaining(String userName, String userCode);
 }

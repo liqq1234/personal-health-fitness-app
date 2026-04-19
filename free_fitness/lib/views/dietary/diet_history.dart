@@ -26,10 +26,7 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
-    final logs = await _dbHelper.queryDietList(
-      startDate: dateStr,
-      endDate: dateStr,
-    );
+    final logs = await _dbHelper.queryDietList(date: dateStr);
     if (mounted) {
       setState(() {
         _logs = logs;
@@ -55,6 +52,10 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
 
   double get _totalCalories => _logs.fold(0, (sum, e) => sum + e.calories);
   double get _totalProtein => _logs.fold(0, (sum, e) => sum + e.protein);
+
+  double get _totalFat => _logs.fold(0, (sum, e) => sum + e.fat);
+  double get _totalCarbs => _logs.fold(0, (sum, e) => sum + e.carbs);
+  double get _totalWater => _logs.fold(0, (sum, e) => sum + e.water);
 
   @override
   Widget build(BuildContext context) {
@@ -119,20 +120,53 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
         color: colorScheme.primaryContainer,
         borderRadius: BorderRadius.circular(16.sp),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceAround,
+      child: Column(
         children: [
-          _buildSummaryItem(
-            '总热量',
-            '${_totalCalories.toStringAsFixed(0)}',
-            'kcal',
-            colorScheme,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSummaryItem(
+                '总热量',
+                '${_totalCalories.toStringAsFixed(0)}',
+                'kcal',
+                colorScheme,
+              ),
+              _buildSummaryItem(
+                '总蛋白质',
+                '${_totalProtein.toStringAsFixed(1)}',
+                'g',
+                colorScheme,
+              ),
+            ],
           ),
-          _buildSummaryItem(
-            '总蛋白质',
-            '${_totalProtein.toStringAsFixed(1)}',
-            'g',
-            colorScheme,
+          SizedBox(height: 12.sp),
+          Divider(
+            color: colorScheme.onPrimaryContainer.withOpacity(0.1),
+            height: 1,
+          ),
+          SizedBox(height: 12.sp),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSummaryItem(
+                '碳水',
+                '${_totalCarbs.toStringAsFixed(1)}',
+                'g',
+                colorScheme,
+              ),
+              _buildSummaryItem(
+                '脂肪',
+                '${_totalFat.toStringAsFixed(1)}',
+                'g',
+                colorScheme,
+              ),
+              _buildSummaryItem(
+                '饮水',
+                '${_totalWater.toStringAsFixed(0)}',
+                'ml',
+                colorScheme,
+              ),
+            ],
           ),
         ],
       ),
@@ -221,12 +255,41 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
           log.foodName,
           style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15.sp),
         ),
-        subtitle: Text(
-          mealLabel,
-          style: TextStyle(
-            color: colorScheme.onSurfaceVariant,
-            fontSize: 13.sp,
-          ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              mealLabel,
+              style: TextStyle(
+                color: colorScheme.onSurfaceVariant,
+                fontSize: 12.sp,
+              ),
+            ),
+            SizedBox(height: 4.sp),
+            Wrap(
+              spacing: 8.sp,
+              runSpacing: 4.sp,
+              children: [
+                _buildNutrientChip(
+                  '蛋 ${log.protein.toStringAsFixed(1)}g',
+                  Colors.orange,
+                ),
+                _buildNutrientChip(
+                  '碳 ${log.carbs.toStringAsFixed(1)}g',
+                  Colors.blue,
+                ),
+                _buildNutrientChip(
+                  '脂 ${log.fat.toStringAsFixed(1)}g',
+                  Colors.red,
+                ),
+                if (log.water > 0)
+                  _buildNutrientChip(
+                    '水 ${log.water.toStringAsFixed(0)}ml',
+                    Colors.cyan,
+                  ),
+              ],
+            ),
+          ],
         ),
         trailing: Text(
           '${log.calories.toStringAsFixed(0)} kcal',
@@ -235,6 +298,25 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
             fontWeight: FontWeight.bold,
             fontSize: 14.sp,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNutrientChip(String label, Color color) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 6.sp, vertical: 2.sp),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(4.sp),
+        border: Border.all(color: color.withOpacity(0.2), width: 0.5),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 10.sp,
+          fontWeight: FontWeight.w500,
         ),
       ),
     );

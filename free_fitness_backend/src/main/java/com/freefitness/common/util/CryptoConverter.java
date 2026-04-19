@@ -20,17 +20,24 @@ public class CryptoConverter implements AttributeConverter<Double, String> {
         secretKey = key;
     }
 
+    private static String getSecretKey() {
+        if (secretKey == null) {
+            return "FreeFitnessAesKey2026_32BytesKey"; // 兜底密钥
+        }
+        return secretKey;
+    }
+
     @Override
     public String convertToDatabaseColumn(Double attribute) {
         if (attribute == null) return null;
-        return AesUtil.encryptDouble(attribute, secretKey);
+        return AesUtil.encryptDouble(attribute, getSecretKey());
     }
 
     @Override
     public Double convertToEntityAttribute(String dbData) {
         if (dbData == null) return null;
         try {
-            return AesUtil.decryptDouble(dbData, secretKey);
+            return AesUtil.decryptDouble(dbData, getSecretKey());
         } catch (Exception e) {
             // 如果已经是明文（如旧数据），直接尝试解析
             try {

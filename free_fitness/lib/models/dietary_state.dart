@@ -90,7 +90,7 @@ class ServingInfo {
   // 注意，只有初始化导入asset的食品数据时，才需要传入大卡值
   double? energyKCal;
   double? saturatedFat, transFat, polyunsaturatedFat, monounsaturatedFat;
-  double? cholesterol, sugar, dietaryFiber, potassium;
+  double? cholesterol, sugar, dietaryFiber, potassium, water;
   bool isDeleted;
 
   ServingInfo({
@@ -112,6 +112,7 @@ class ServingInfo {
     required this.sodium,
     this.cholesterol,
     this.potassium,
+    this.water,
     this.contributor,
     this.gmtCreate,
     this.updateUser,
@@ -139,6 +140,7 @@ class ServingInfo {
       "dietary_fiber": dietaryFiber,
       "sodium": sodium,
       "potassium": potassium,
+      "water": water,
       "contributor": contributor,
       "gmt_create": gmtCreate,
       "update_user": updateUser,
@@ -169,6 +171,7 @@ class ServingInfo {
       "dietary_fiber": dietaryFiber?.toStringAsFixed(2),
       "sodium": sodium.toStringAsFixed(2),
       "potassium": potassium?.toStringAsFixed(2),
+      "water": water?.toStringAsFixed(2),
       "contributor": contributor,
       "gmt_create": gmtCreate,
       "update_user": updateUser,
@@ -201,6 +204,7 @@ class ServingInfo {
       sugar: (map['sugar'] ?? map['sugar'])?.toDouble(),
       dietaryFiber: (map['dietary_fiber'] ?? map['dietaryFiber'])?.toDouble(),
       potassium: (map['potassium'] ?? map['potassium'])?.toDouble(),
+      water: (map['water'] ?? map['water'])?.toDouble(),
       contributor: map['contributor'] as String?,
       gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
       updateUser: map['update_user'] ?? map['updateUser'],
@@ -231,6 +235,7 @@ class ServingInfo {
       'sugar': sugar,
       'dietaryFiber': dietaryFiber,
       'potassium': potassium,
+      'water': water,
       'contributor': contributor,
       'gmtCreate': gmtCreate,
       'updateUser': updateUser,
@@ -247,7 +252,7 @@ class ServingInfo {
       "serving_size": $servingSize, "serving_unit": $servingUnit,
       "energy": $energy, "energy_kcal": $energyKCal, "protein": $protein, "total_fat": $totalFat, "saturated_fat": $saturatedFat, "trans_fat": $transFat, 
       "polyunsaturated_fat": $polyunsaturatedFat, "monounsaturated_fat": $monounsaturatedFat, "cholesterol": $cholesterol, 
-      "total_carbohydrate": $totalCarbohydrate, "sugar": $sugar, "dietary_fiber": $dietaryFiber, "sodium": $sodium, "potassium": $potassium, 
+      "total_carbohydrate": $totalCarbohydrate, "sugar": $sugar, "dietary_fiber": $dietaryFiber, "sodium": $sodium, "potassium": $potassium, "water": $water, 
       "contributor": $contributor, "gmt_create": $gmtCreate, "update_user": $updateUser, "gmt_modified": $gmtModified,"is_deleted": $isDeleted
       }
     ''';
@@ -260,7 +265,7 @@ class DailyFoodItem {
   String date, mealCategory;
   int userId, foodId, servingInfoId;
   double foodIntakeSize;
-  String? gmtCreate, gmtModified;
+  String? originalText, mealPhoto, gmtCreate, gmtModified;
 
   DailyFoodItem({
     this.dailyFoodItemId,
@@ -270,6 +275,8 @@ class DailyFoodItem {
     required this.foodIntakeSize,
     required this.foodId,
     required this.servingInfoId,
+    this.originalText,
+    this.mealPhoto,
     this.gmtCreate,
     this.gmtModified,
   });
@@ -283,6 +290,8 @@ class DailyFoodItem {
       "food_intake_size": foodIntakeSize,
       "food_id": foodId,
       "serving_info_id": servingInfoId,
+      "original_text": originalText,
+      "meal_photo": mealPhoto,
       "gmt_create": gmtCreate,
       "gmt_modified": gmtModified,
     };
@@ -299,6 +308,8 @@ class DailyFoodItem {
           .toDouble(),
       foodId: map['food_id'] ?? map['foodId'],
       servingInfoId: map['serving_info_id'] ?? map['servingInfoId'],
+      originalText: map['original_text'] ?? map['originalText'],
+      mealPhoto: map['meal_photo'] ?? map['mealPhoto'],
       gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
       gmtModified: map['gmt_modified'] ?? map['gmtModified'],
     );
@@ -313,6 +324,8 @@ class DailyFoodItem {
       'foodIntakeSize': foodIntakeSize,
       'foodId': foodId,
       'servingInfoId': servingInfoId,
+      'originalText': originalText,
+      'mealPhoto': mealPhoto,
       'gmtCreate': gmtCreate,
       'gmtModified': gmtModified,
     };
@@ -515,5 +528,109 @@ class FoodNutrientTotals {
       // 'dinnerCalorie': dinnerCalorie,
       // 'otherCalorie': otherCalorie,
     };
+  }
+}
+
+class AiParseResponse {
+  final String originalText;
+  final List<ParsedFood> foods;
+  final double totalCalories, totalProtein, totalCarbs, totalFat, totalWater;
+
+  AiParseResponse({
+    required this.originalText,
+    required this.foods,
+    required this.totalCalories,
+    required this.totalProtein,
+    required this.totalCarbs,
+    required this.totalFat,
+    required this.totalWater,
+  });
+
+  factory AiParseResponse.fromJson(Map<String, dynamic> json) {
+    return AiParseResponse(
+      originalText: json['originalText'],
+      foods: (json['foods'] as List)
+          .map((i) => ParsedFood.fromJson(i))
+          .toList(),
+      totalCalories: json['totalCalories'].toDouble(),
+      totalProtein: json['totalProtein'].toDouble(),
+      totalCarbs: json['totalCarbs'].toDouble(),
+      totalFat: json['totalFat'].toDouble(),
+      totalWater: json['totalWater'].toDouble(),
+    );
+  }
+}
+
+class ParsedFood {
+  final String foodName, unit;
+  final double amount, calories, protein, carbs, fat;
+
+  ParsedFood({
+    required this.foodName,
+    required this.unit,
+    required this.amount,
+    required this.calories,
+    required this.protein,
+    required this.carbs,
+    required this.fat,
+  });
+
+  factory ParsedFood.fromJson(Map<String, dynamic> json) {
+    return ParsedFood(
+      foodName: json['foodName'],
+      unit: json['unit'],
+      amount: json['amount'].toDouble(),
+      calories: json['calories'].toDouble(),
+      protein: json['protein'].toDouble(),
+      carbs: json['carbs'].toDouble(),
+      fat: json['fat'].toDouble(),
+    );
+  }
+}
+
+class NutritionAnalysis {
+  final String date;
+  final double currentCalories, currentProtein, currentFat, currentCarbs;
+  final double targetCalories, targetProtein, targetFat, targetCarbs;
+  final double calorieGap, proteinGap, fatGap, carbsGap;
+  final List<String> recommendations;
+  final String statusSummary;
+
+  NutritionAnalysis({
+    required this.date,
+    required this.currentCalories,
+    required this.currentProtein,
+    required this.currentFat,
+    required this.currentCarbs,
+    required this.targetCalories,
+    required this.targetProtein,
+    required this.targetFat,
+    required this.targetCarbs,
+    required this.calorieGap,
+    required this.proteinGap,
+    required this.fatGap,
+    required this.carbsGap,
+    required this.recommendations,
+    required this.statusSummary,
+  });
+
+  factory NutritionAnalysis.fromJson(Map<String, dynamic> json) {
+    return NutritionAnalysis(
+      date: json['date'],
+      currentCalories: json['currentCalories'].toDouble(),
+      currentProtein: json['currentProtein'].toDouble(),
+      currentFat: json['currentFat'].toDouble(),
+      currentCarbs: json['currentCarbs'].toDouble(),
+      targetCalories: json['targetCalories'].toDouble(),
+      targetProtein: json['targetProtein'].toDouble(),
+      targetFat: json['targetFat'].toDouble(),
+      targetCarbs: json['targetCarbs'].toDouble(),
+      calorieGap: json['calorieGap'].toDouble(),
+      proteinGap: json['proteinGap'].toDouble(),
+      fatGap: json['fatGap'].toDouble(),
+      carbsGap: json['carbsGap'].toDouble(),
+      recommendations: List<String>.from(json['recommendations']),
+      statusSummary: json['statusSummary'],
+    );
   }
 }

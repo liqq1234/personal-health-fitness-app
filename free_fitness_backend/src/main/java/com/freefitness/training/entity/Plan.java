@@ -33,6 +33,21 @@ public class Plan {
     @Column(name = "plan_period", nullable = false)
     private Integer planPeriod;
 
+    @Column(name = "total_sets")
+    private Integer totalSets;
+
+    @Column(name = "sport_type", length = 50)
+    private String sportType;
+
+    @Column(name = "rest_duration")
+    private Integer restDuration;
+
+    @Column(name = "start_time", length = 10)
+    private String startTime;
+
+    @Column(name = "reminder_minutes")
+    private Integer reminderMinutes;
+
     @Column(name = "description", columnDefinition = "TEXT")
     private String description;
 

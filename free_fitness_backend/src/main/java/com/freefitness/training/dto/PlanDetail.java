@@ -16,6 +16,11 @@ public class PlanDetail {
     private String planCategory;
     private String planLevel;
     private Integer planPeriod;
+    private Integer totalSets;
+    private String sportType;
+    private Integer restDuration;
+    private String startTime;
+    private Integer reminderMinutes;
     private String description;
     /** key = dayNumber, value = GroupDetail */
     private List<DayGroup> days;
@@ -34,6 +39,11 @@ public class PlanDetail {
         d.setPlanCategory(p.getPlanCategory());
         d.setPlanLevel(p.getPlanLevel());
         d.setPlanPeriod(p.getPlanPeriod());
+        d.setTotalSets(p.getTotalSets());
+        d.setSportType(p.getSportType());
+        d.setRestDuration(p.getRestDuration());
+        d.setStartTime(p.getStartTime());
+        d.setReminderMinutes(p.getReminderMinutes());
         d.setDescription(p.getDescription());
         d.setDays(days);
         return d;

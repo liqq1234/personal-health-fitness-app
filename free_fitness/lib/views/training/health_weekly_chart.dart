@@ -62,12 +62,16 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
       double calories = diets.fold(0.0, (sum, item) => sum + item.calories);
 
       double sleepHrs = sleepList
-          .where((e) => e.startTime.split(' ')[0] == dateStr)
+          .where(
+            (e) => e.endTime.substring(0, 10) == dateStr,
+          ) // 改为按结束时间（醒来时间）统计，并使用 substring(0, 10) 兼容 ISO 格式
           .fold(0.0, (sum, item) => sum + item.durationHours);
 
       double trainMin =
           (trainingList
-                      .where((e) => e.trainedDate.split(' ')[0] == dateStr)
+                      .where(
+                        (e) => e.trainedDate.substring(0, 10) == dateStr,
+                      ) // 使用 substring(0, 10) 兼容 ISO 格式
                       .fold(0, (sum, item) => sum + item.trainedDuration) /
                   60)
               .ceilToDouble();
@@ -112,6 +116,28 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
     double dayWidth = chartVisibleWidth / 3;
     double totalChartWidth = _allData.length * dayWidth;
 
+    // 计算所有数据的最大比率，用于动态设置Y轴范围
+    double maxRatio = 0;
+    for (final data in _allData) {
+      double stepsRatio = data.steps / targetSteps;
+      double caloriesRatio = data.calories / targetCalories;
+      double sleepRatio = data.sleep / targetSleep;
+      double trainingRatio = data.training / targetTraining;
+
+      maxRatio = stepsRatio > maxRatio ? stepsRatio : maxRatio;
+      maxRatio = caloriesRatio > maxRatio ? caloriesRatio : maxRatio;
+      maxRatio = sleepRatio > maxRatio ? sleepRatio : maxRatio;
+      maxRatio = trainingRatio > maxRatio ? trainingRatio : maxRatio;
+    }
+
+    // 设置maxY为最大比率向上取整到0.1的倍数，再加0.1作为余量
+    // 最小值为0.2，确保即使所有数据为0也有合理的显示范围
+    double maxY = ((maxRatio * 10).ceilToDouble() / 10).clamp(0.2, 1.2);
+    if (maxY - maxRatio < 0.1) {
+      maxY += 0.1;
+      if (maxY > 1.2) maxY = 1.2; // 限制最大为1.2，保持一致性
+    }
+
     return Card(
       elevation: 0,
       shape: RoundedRectangleBorder(
@@ -147,7 +173,7 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
                 child: BarChart(
                   BarChartData(
                     alignment: BarChartAlignment.spaceAround,
-                    maxY: 1.2,
+                    maxY: maxY,
                     barTouchData: BarTouchData(
                       touchTooltipData: BarTouchTooltipData(
                         getTooltipColor: (_) =>
@@ -230,10 +256,18 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
                       return BarChartGroupData(
                         x: idx,
                         barRods: [
-                          _buildRod(d.steps / targetSteps, Colors.green),
-                          _buildRod(d.calories / targetCalories, Colors.orange),
-                          _buildRod(d.sleep / targetSleep, Colors.blue),
-                          _buildRod(d.training / targetTraining, Colors.teal),
+                          _buildRod(d.steps / targetSteps, Colors.green, maxY),
+                          _buildRod(
+                            d.calories / targetCalories,
+                            Colors.orange,
+                            maxY,
+                          ),
+                          _buildRod(d.sleep / targetSleep, Colors.blue, maxY),
+                          _buildRod(
+                            d.training / targetTraining,
+                            Colors.teal,
+                            maxY,
+                          ),
                         ],
                         barsSpace: 2.sp,
                       );
@@ -248,9 +282,14 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
     );
   }
 
-  BarChartRodData _buildRod(double ratio, Color color) {
-    double val = ratio > 1.2 ? 1.2 : ratio;
-    if (val < 0.05 && ratio > 0) val = 0.05;
+  BarChartRodData _buildRod(double ratio, Color color, double maxY) {
+    double val = ratio > maxY ? maxY : ratio;
+    // 确保即使数据为0也有最小可见高度
+    if (val == 0) {
+      val = 0.02; // 为0值数据设置最小可见高度
+    } else if (val < 0.05 && ratio > 0) {
+      val = 0.05; // 为微小正值设置最小高度
+    }
     return BarChartRodData(
       toY: val,
       color: color,
@@ -258,7 +297,7 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
       borderRadius: BorderRadius.circular(2.sp),
       backDrawRodData: BackgroundBarChartRodData(
         show: true,
-        toY: 1.2,
+        toY: maxY,
         color: color.withOpacity(0.04),
       ),
     );

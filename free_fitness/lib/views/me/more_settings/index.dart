@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:get_storage/get_storage.dart';
-import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../../services/service_initializer.dart';
 
@@ -17,51 +16,16 @@ class MoreSettings extends StatefulWidget {
 }
 
 class _MoreSettingsState extends State<MoreSettings> {
-  PackageInfo _packageInfo = PackageInfo(
-    appName: 'Unknown',
-    packageName: 'Unknown',
-    version: 'Unknown',
-    buildNumber: 'Unknown',
-    buildSignature: 'Unknown',
-  );
-
   @override
   void initState() {
     super.initState();
-    _initPackageInfo();
-  }
-
-  Future<void> _initPackageInfo() async {
-    WidgetsFlutterBinding.ensureInitialized();
-
-    final info = await PackageInfo.fromPlatform();
-
-    setState(() {
-      _packageInfo = info;
-    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(CusAL.of(context).moreSettings)),
-      body: Column(
-        children: [
-          Expanded(child: buildSettingList()),
-          Center(
-            child: Padding(
-              padding: EdgeInsets.all(16.sp),
-              child: Text(
-                '${_packageInfo.appName} v${_packageInfo.version}+${_packageInfo.buildNumber}',
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  color: Theme.of(context).textTheme.bodySmall?.color,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
+      body: Column(children: [Expanded(child: buildSettingList())]),
     );
   }
 

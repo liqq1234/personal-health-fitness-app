@@ -63,6 +63,52 @@ CREATE TABLE `ff_intake_daily_goal` (
   PRIMARY KEY (`intake_daily_goal_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- 好友关系表
+DROP TABLE IF EXISTS `ff_friendship`;
+CREATE TABLE `ff_friendship` (
+  `friendship_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `friend_id` bigint NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'PENDING',
+  `gmt_create` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`friendship_id`),
+  UNIQUE KEY `uk_user_friend` (`user_id`,`friend_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 社交动态表 (朋友圈)
+DROP TABLE IF EXISTS `ff_social_moment`;
+CREATE TABLE `ff_social_moment` (
+  `moment_id` bigint NOT NULL AUTO_INCREMENT,
+  `user_id` bigint NOT NULL,
+  `content` text,
+  `images` text COMMENT 'JSON Array',
+  `gmt_create` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`moment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 动态评论表
+DROP TABLE IF EXISTS `ff_social_comment`;
+CREATE TABLE `ff_social_comment` (
+  `comment_id` bigint NOT NULL AUTO_INCREMENT,
+  `moment_id` bigint NOT NULL,
+  `user_id` bigint NOT NULL,
+  `content` text NOT NULL,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`comment_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 私聊消息表
+DROP TABLE IF EXISTS `ff_chat_message`;
+CREATE TABLE `ff_chat_message` (
+  `message_id` bigint NOT NULL AUTO_INCREMENT,
+  `sender_id` bigint NOT NULL,
+  `receiver_id` bigint NOT NULL,
+  `msg_type` varchar(10) NOT NULL DEFAULT 'TEXT',
+  `content` text,
+  `gmt_create` varchar(30) DEFAULT NULL,
+  PRIMARY KEY (`message_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 
 -- ----------------------------
 -- 2. Training Module
@@ -133,6 +179,11 @@ CREATE TABLE `ff_plan` (
   `plan_category` varchar(64) NOT NULL,
   `plan_level` varchar(32) NOT NULL,
   `plan_period` int NOT NULL,
+  `total_sets` int DEFAULT '1',
+  `sport_type` varchar(50) DEFAULT NULL,
+  `rest_duration` int DEFAULT '60',
+  `start_time` varchar(10) DEFAULT NULL,
+  `reminder_minutes` int DEFAULT '15',
   `description` text,
   `contributor` varchar(64) DEFAULT NULL,
   `gmt_create` varchar(30) DEFAULT NULL,
@@ -158,6 +209,7 @@ CREATE TABLE `ff_trained_detail_log` (
   `trained_detail_log_id` bigint NOT NULL AUTO_INCREMENT,
   `user_id` bigint NOT NULL,
   `trained_date` varchar(12) DEFAULT NULL,
+  `plan_id` bigint DEFAULT NULL,
   `plan_name` varchar(128) DEFAULT NULL,
   `plan_category` varchar(64) DEFAULT NULL,
   `plan_level` varchar(32) DEFAULT NULL,
@@ -171,6 +223,9 @@ CREATE TABLE `ff_trained_detail_log` (
   `trained_duration` int NOT NULL,
   `totol_paused_time` int NOT NULL,
   `total_rest_time` int NOT NULL,
+  `reps` int DEFAULT NULL,
+  `weights` double DEFAULT NULL,
+  `feedback_tag` varchar(50) DEFAULT NULL COMMENT 'EXCELLENT, REMIND, WARNING',
   PRIMARY KEY (`trained_detail_log_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -254,6 +309,8 @@ CREATE TABLE `ff_daily_food_item` (
   `food_id` bigint NOT NULL,
   `food_intake_size` double NOT NULL,
   `serving_info_id` bigint NOT NULL,
+  `original_text` text COMMENT 'AI fuzzy recognition source',
+  `meal_photo` varchar(512) DEFAULT NULL,
   `gmt_create` varchar(30) DEFAULT NULL,
   `gmt_modified` varchar(30) DEFAULT NULL,
   PRIMARY KEY (`daily_food_item_id`)

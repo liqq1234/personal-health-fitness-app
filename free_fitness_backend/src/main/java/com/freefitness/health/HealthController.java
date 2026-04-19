@@ -115,6 +115,24 @@ public class HealthController {
         return Result.success(healthService.assess(userId, date));
     }
 
+    @Operation(summary = "获取运动分析与AI建议（含最近一周曲线数据）", 
+               description = "默认优先读缓存，force=true 则强制重新调用 AI 分析")
+    @GetMapping("/exercise/analysis")
+    public Result<com.freefitness.health.dto.ExerciseAnalysis> getExerciseAnalysis(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(defaultValue = "false") boolean force) {
+        return Result.success(healthService.getExerciseAnalysis(userId, force));
+    }
+
+    @Operation(summary = "获取睡眠分析与AI建议", 
+               description = "默认优先读缓存，force=true 则强制重新调用 AI 分析")
+    @GetMapping("/sleep/analysis")
+    public Result<com.freefitness.health.dto.SleepAnalysis> getSleepAnalysis(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(defaultValue = "false") boolean force) {
+        return Result.success(healthService.getSleepAnalysis(userId, force));
+    }
+
     @Operation(summary = "后端模拟走路（随机增加 50-300 步，用于演示目标）")
     @PostMapping("/simulate-walk")
     public Result<DailySteps> simulateWalk(@AuthenticationPrincipal Long userId) {

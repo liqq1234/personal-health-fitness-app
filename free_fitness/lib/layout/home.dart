@@ -10,6 +10,7 @@ import '../views/training/health_dashboard.dart';
 import '../views/training/index.dart';
 import '../views/dietary/diet_entry.dart';
 import '../views/diary/sleep_report.dart';
+import '../views/social/social_page.dart';
 import '../services/pedometer_service.dart';
 
 /// 主页面
@@ -30,6 +31,7 @@ class _HomePageState extends State<HomePage> {
     const Training(),
     HealthDashboard(key: _healthKey),
     const SleepReportPage(),
+    const SocialPage(),
     const UserAndSettings(),
   ];
 
@@ -157,6 +159,10 @@ class _HomePageState extends State<HomePage> {
             const BottomNavigationBarItem(
               icon: Icon(Icons.bedtime),
               label: '睡眠',
+            ),
+            const BottomNavigationBarItem(
+              icon: Icon(Icons.people),
+              label: '社交',
             ),
             BottomNavigationBarItem(
               icon: const Icon(Icons.person),

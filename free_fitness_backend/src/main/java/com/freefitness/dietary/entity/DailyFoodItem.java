@@ -37,6 +37,15 @@ public class DailyFoodItem {
     @Column(name = "serving_info_id", nullable = false)
     private Long servingInfoId;
 
+    @Column(name = "original_text", columnDefinition = "TEXT")
+    private String originalText; // AI 识别前的原始输入文本
+
+    @Column(name = "meal_photo", length = 512)
+    private String mealPhoto;
+
+    @Column(name = "water")
+    private Double water; // 水分 (ml)
+
     @Column(name = "gmt_create", length = 30)
     private String gmtCreate;
 

@@ -68,6 +68,14 @@ class _OneChatScreenState extends State<OneChatScreen> {
   StreamWithCancel<CCRespBody> respStream = StreamWithCancel.empty();
 
   @override
+  void dispose() {
+    respStream.cancel();
+    _scrollController.dispose();
+    _userInputController.dispose();
+    super.dispose();
+  }
+
+  @override
   void initState() {
     super.initState();
 
@@ -151,13 +159,10 @@ class _OneChatScreenState extends State<OneChatScreen> {
   // 在用户输入或者AI响应后，需要把对话列表滚动到最下面
   // 调用时放在状态改变函数中
   void chatListScrollToBottom() {
-    // 每收到一点新的响应文本，就都滚动到ListView的底部
-    // 注意：ai响应的消息卡片下方还有一行功能按钮，这里滚动了那个还没显示的话是看不到的
-    // 所以滚动到最大还加一点高度（大于实际功能按钮高度也没问题）
+    if (!_scrollController.hasClients) return;
     _scrollController.animateTo(
       _scrollController.position.maxScrollExtent + 80,
       curve: Curves.easeOut,
-      // 注意：sse的间隔比较短，这个滚动也要快一点
       duration: const Duration(milliseconds: 50),
     );
   }
@@ -257,12 +262,14 @@ class _OneChatScreenState extends State<OneChatScreen> {
       dateTime: DateTime.now(),
     );
 
+    if (!mounted) return;
     setState(() {
       messages.add(csMsg!);
     });
 
     respStream.stream.listen(
       (crb) {
+        if (!mounted) return;
         // 如果返回了[DONE]，则表示响应结束
         if ((crb.customReplyText ?? "").contains('[DONE]')) {
           setState(() {
@@ -271,6 +278,7 @@ class _OneChatScreenState extends State<OneChatScreen> {
           });
         } else {
           // 为了每次有消息都能更新页面状态
+          if (!mounted) return;
           setState(() {
             isBotThinking = true;
           });
@@ -328,6 +336,7 @@ class _OneChatScreenState extends State<OneChatScreen> {
   /// 最后一条大模型回复如果不满意，可以重新生成(中间的不行，因为后续的问题是关联上下文的)
   /// 2024-06-20 限量的要计算token数量，所以不让重新生成(？？？但实际也没做累加的token的逻辑)
   void regenerateLatestQuestion() {
+    if (!mounted) return;
     setState(() {
       // 将最后一条消息删除，并添加占位消息，重新发送
       messages.removeLast();

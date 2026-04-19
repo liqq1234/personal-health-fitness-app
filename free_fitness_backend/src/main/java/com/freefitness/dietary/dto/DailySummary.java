@@ -18,8 +18,9 @@ public class DailySummary {
     private double totalCalories;
     private double totalProtein;
     private double totalFat;
-    private double totalCarbohydrate;
+    private double totalCarbs;
     private double totalSodium;
+    private double totalWater;
 
     private List<MealSummary> meals;
 
@@ -31,7 +32,7 @@ public class DailySummary {
         private double calories;
         private double protein;
         private double fat;
-        private double carbohydrate;
+        private double carbs;
         private int itemCount;
     }
 }

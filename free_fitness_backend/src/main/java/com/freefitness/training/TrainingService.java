@@ -184,6 +184,11 @@ public class TrainingService {
         plan.setPlanCategory(req.getPlanCategory());
         plan.setPlanLevel(req.getPlanLevel());
         plan.setPlanPeriod(req.getPlanPeriod());
+        plan.setTotalSets(req.getTotalSets());
+        plan.setSportType(req.getSportType());
+        plan.setRestDuration(req.getRestDuration());
+        plan.setStartTime(req.getStartTime());
+        plan.setReminderMinutes(req.getReminderMinutes());
         plan.setDescription(req.getDescription());
         plan.setGmtCreate(LocalDateTime.now().format(DT));
         plan = planRepo.save(plan);
@@ -208,6 +213,11 @@ public class TrainingService {
         if (req.getPlanCategory() != null) plan.setPlanCategory(req.getPlanCategory());
         if (req.getPlanLevel()    != null) plan.setPlanLevel(req.getPlanLevel());
         if (req.getPlanPeriod()   != null) plan.setPlanPeriod(req.getPlanPeriod());
+        if (req.getTotalSets()   != null) plan.setTotalSets(req.getTotalSets());
+        if (req.getSportType()   != null) plan.setSportType(req.getSportType());
+        if (req.getRestDuration() != null) plan.setRestDuration(req.getRestDuration());
+        if (req.getStartTime()    != null) plan.setStartTime(req.getStartTime());
+        if (req.getReminderMinutes() != null) plan.setReminderMinutes(req.getReminderMinutes());
         if (req.getDescription()  != null) plan.setDescription(req.getDescription());
         plan.setGmtModified(LocalDateTime.now().format(DT));
         planRepo.save(plan);
@@ -276,7 +286,22 @@ public class TrainingService {
         if (req.getTrainedDate() == null) {
             req.setTrainedDate(LocalDate.now().format(D));
         }
+        
+        // Calculate feedback tag based on last 14 days
+        req.setFeedbackTag(calculateFeedbackTag(userId));
+        
         return logRepo.save(req);
+    }
+
+    private String calculateFeedbackTag(Long userId) {
+        String startDate = LocalDate.now().minusDays(14).format(D);
+        String endDate = LocalDate.now().format(D);
+        List<TrainedDetailLog> recentLogs = logRepo.findByUserIdAndDateRange(userId, startDate, endDate);
+        
+        int count = recentLogs.size();
+        if (count >= 10) return "EXCELLENT"; // 勤奋奖 (High frequency)
+        if (count >= 4) return "REMIND";    // 坚持住 (Moderate frequency)
+        return "WARNING";                   // 预警 (Low frequency)
     }
 
     public Page<TrainedDetailLog> getLogs(Long userId, int page, int size) {

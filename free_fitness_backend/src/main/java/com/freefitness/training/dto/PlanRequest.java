@@ -13,6 +13,11 @@ public class PlanRequest {
     private String planCategory;
     private String planLevel;
     private Integer planPeriod;
+    private Integer totalSets;
+    private String sportType;
+    private Integer restDuration;
+    private String startTime;
+    private Integer reminderMinutes;
     private String description;
     /** 每天对应的 Group 映射列表 */
     private List<DayGroupMapping> days;

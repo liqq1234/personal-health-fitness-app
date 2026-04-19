@@ -8,4 +8,6 @@ import java.util.List;
 
 public interface ExerciseSessionRepository extends JpaRepository<ExerciseSession, Long> {
     List<ExerciseSession> findByUserIdOrderByStartTimeDesc(Long userId, Pageable pageable);
+
+    List<ExerciseSession> findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(Long userId, String start, String end);
 }

@@ -26,6 +26,10 @@ public class HealthService {
     private final SleepRecordRepository sleepRepo;
     private final DietLogRepository dietLogRepo;
     private final ExerciseSessionRepository sessionRepo;
+    private final AiExerciseService aiExerciseService;
+    private final AiSleepService aiSleepService;
+    private final com.freefitness.user.repository.UserRepository userRepo;
+    private final HealthAiAnalysisRepository aiAnalysisRepo;
 
     private static final DateTimeFormatter DT_FMT =
             DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss");
@@ -224,5 +228,209 @@ public class HealthService {
         steps.setGmtCreate(LocalDateTime.now().format(DT_FMT));
         
         return stepsRepo.save(steps);
+    }
+
+    // ─────────────── 2.8 运动分析 ───────────────
+    @Transactional
+    public com.freefitness.health.dto.ExerciseAnalysis getExerciseAnalysis(Long userId, boolean force) {
+        String today = LocalDate.now().toString();
+
+        // 1. 如果不是强制更新，先看库里有没有今天的或者是最近的一条
+        if (!force) {
+            var latestOpt = aiAnalysisRepo.findFirstByUserIdAndTypeOrderByDateDesc(userId, "EXERCISE");
+            if (latestOpt.isPresent()) {
+                HealthAiAnalysis cached = latestOpt.get();
+                // 如果是今天的，直接返回
+                // 这里为了简单，即使是昨天的也返回吧，只要用户不强制刷新，就用旧的。
+                // 如果需要严格一点，可以判断 cached.getDate().equals(today)
+                
+                // 重新构建周趋势图表数据（图表总是实时的）
+                List<com.freefitness.health.dto.ExerciseAnalysis.DailyStat> weeklyData = buildWeeklyData(userId);
+                return new com.freefitness.health.dto.ExerciseAnalysis(weeklyData, cached.getFeedback(), cached.getScore());
+            }
+        }
+
+        // 2. 如果强制更新，或者库里没有，则执行 AI 分析
+        LocalDate now = LocalDate.now();
+        String endDate = now.toString() + "T23:59:59";
+        String startDateWeekly = now.minusDays(6).toString() + "T00:00:00";
+        String startDateBiWeekly = now.minusDays(13).toString() + "T00:00:00";
+
+        // 1. 周维度图表数据 (最近7天)
+        List<ExerciseSession> weeklySessions = sessionRepo.findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(userId, startDateWeekly, endDate);
+        Map<String, com.freefitness.health.dto.ExerciseAnalysis.DailyStat> statMap = new java.util.TreeMap<>();
+        for (int i = 0; i < 7; i++) {
+            String date = now.minusDays(i).toString();
+            statMap.put(date, new com.freefitness.health.dto.ExerciseAnalysis.DailyStat(date, 0.0, 0.0));
+        }
+
+        for (ExerciseSession s : weeklySessions) {
+            String date = s.getStartTime().substring(0, 10);
+            if (statMap.containsKey(date)) {
+                com.freefitness.health.dto.ExerciseAnalysis.DailyStat ds = statMap.get(date);
+                ds.setDistance(ds.getDistance() + (s.getDistance() / 1000.0));
+                ds.setCalories(ds.getCalories() + (s.getCalories() != null ? s.getCalories() : 0.0));
+            }
+        }
+        List<com.freefitness.health.dto.ExerciseAnalysis.DailyStat> weeklyData = new java.util.ArrayList<>(statMap.values());
+
+        // 2. AI 反馈分析 (最近14天)
+        List<ExerciseSession> biWeeklySessions = sessionRepo.findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(userId, startDateBiWeekly, endDate);
+        long activeDays = biWeeklySessions.stream().map(s -> s.getStartTime().substring(0, 10)).distinct().count();
+        double totalDist = biWeeklySessions.stream().mapToDouble(s -> s.getDistance() / 1000.0).sum();
+        double avgDist = activeDays > 0 ? totalDist / activeDays : 0;
+
+        String summary = String.format("用户在过去14天内：有运动记录的天数为 %d 天，总运动距离 %.2f km，平均每次运动距离 %.2f km。",
+                activeDays, totalDist, avgDist);
+
+        // 简单的评分逻辑
+        int score = (int) (activeDays * 7 + (totalDist > 20 ? 30 : totalDist * 1.5));
+        if (score > 100) score = 100;
+
+        // 生成个性化建议需要的用户信息
+        Map<String, Object> userProfile = new java.util.HashMap<>();
+        userRepo.findById(userId).ifPresent(u -> {
+            userProfile.put("gender", u.getGender());
+            userProfile.put("height", u.getHeight() != null ? u.getHeight() : 0.0);
+            userProfile.put("weight", u.getCurrentWeight() != null ? u.getCurrentWeight() : 0.0);
+            
+            // 计算 BMI
+            if (u.getHeight() != null && u.getHeight() > 0 && u.getCurrentWeight() != null) {
+                double heightM = u.getHeight() / 100.0;
+                userProfile.put("bmi", u.getCurrentWeight() / (heightM * heightM));
+            } else {
+                userProfile.put("bmi", 0.0);
+            }
+
+            // 计算年龄 (简单处理)
+            if (u.getDateOfBirth() != null && u.getDateOfBirth().length() >= 4) {
+                try {
+                    int birthYear = Integer.parseInt(u.getDateOfBirth().substring(0, 4));
+                    userProfile.put("age", LocalDate.now().getYear() - birthYear);
+                } catch (Exception ignored) {}
+            }
+        });
+
+        String feedback = aiExerciseService.generateExerciseFeedback(summary, userProfile);
+
+        // 3. 保存到数据库以便下次直接读
+        HealthAiAnalysis newAnalysis = new HealthAiAnalysis();
+        newAnalysis.setUserId(userId);
+        newAnalysis.setFeedback(feedback);
+        newAnalysis.setScore(score);
+        newAnalysis.setDate(today);
+        newAnalysis.setType("EXERCISE");
+        newAnalysis.setGmtCreate(LocalDateTime.now().format(DT_FMT));
+        aiAnalysisRepo.save(newAnalysis);
+
+        return new com.freefitness.health.dto.ExerciseAnalysis(weeklyData, feedback, score);
+    }
+
+    @Transactional
+    public com.freefitness.health.dto.SleepAnalysis getSleepAnalysis(Long userId, boolean force) {
+        String today = LocalDate.now().toString();
+
+        if (!force) {
+            var latestOpt = aiAnalysisRepo.findFirstByUserIdAndTypeOrderByDateDesc(userId, "SLEEP");
+            if (latestOpt.isPresent()) {
+                HealthAiAnalysis cached = latestOpt.get();
+                List<com.freefitness.health.dto.SleepAnalysis.DailyStat> weeklyData = buildWeeklySleepData(userId);
+                return new com.freefitness.health.dto.SleepAnalysis(weeklyData, cached.getFeedback(), cached.getScore());
+            }
+        }
+
+        LocalDate now = LocalDate.now();
+        String endDate = now.toString() + "T23:59:59";
+        String startDateWeekly = now.minusDays(6).toString() + "T00:00:00";
+        String startDateBiWeekly = now.minusDays(13).toString() + "T00:00:00";
+
+        // 1. 图表数据
+        List<com.freefitness.health.dto.SleepAnalysis.DailyStat> weeklyData = buildWeeklySleepData(userId);
+
+        // 2. AI 分析摘要 (最近14天)
+        List<SleepRecord> biWeeklySleeps = sleepRepo.findByUserIdOrderByStartTimeDesc(userId, PageRequest.of(0, 14));
+        double totalDuration = biWeeklySleeps.stream().mapToDouble(SleepRecord::getDurationHours).sum();
+        double avgDuration = biWeeklySleeps.isEmpty() ? 0 : totalDuration / biWeeklySleeps.size();
+        double avgQuality = biWeeklySleeps.isEmpty() ? 0 : biWeeklySleeps.stream()
+                .mapToInt(r -> r.getQuality() != null ? r.getQuality() : 0)
+                .average().orElse(0);
+
+        // 计算规律性 (简单逻辑：检查入睡时间的标准差，或者只是对比统计)
+        long inconsistentCount = 0;
+        // 这里可以实现更复杂的规律性算法
+        
+        String summary = String.format("用户在过去两周内：共有 %d 条睡眠记录，平均每晚时长 %.1f 小时，平均质量评分 %.1f/100。",
+                biWeeklySleeps.size(), avgDuration, avgQuality);
+
+        // 评分逻辑
+        int score = (int) (avgDuration >= 7 && avgDuration <= 9 ? 80 : 60);
+        score += (avgQuality / 5);
+        if (score > 100) score = 100;
+
+        // 获取用户信息
+        Map<String, Object> userProfile = new java.util.HashMap<>();
+        userRepo.findById(userId).ifPresent(u -> {
+            userProfile.put("gender", u.getGender());
+            if (u.getDateOfBirth() != null && u.getDateOfBirth().length() >= 4) {
+                try {
+                    int birthYear = Integer.parseInt(u.getDateOfBirth().substring(0, 4));
+                    userProfile.put("age", LocalDate.now().getYear() - birthYear);
+                } catch (Exception ignored) {}
+            }
+        });
+
+        String feedback = aiSleepService.generateSleepFeedback(summary, userProfile);
+
+        // 3. 保存
+        HealthAiAnalysis newAnalysis = new HealthAiAnalysis();
+        newAnalysis.setUserId(userId);
+        newAnalysis.setFeedback(feedback);
+        newAnalysis.setScore(score);
+        newAnalysis.setDate(today);
+        newAnalysis.setType("SLEEP");
+        newAnalysis.setGmtCreate(LocalDateTime.now().format(DT_FMT));
+        aiAnalysisRepo.save(newAnalysis);
+
+        return new com.freefitness.health.dto.SleepAnalysis(weeklyData, feedback, score);
+    }
+
+    private List<com.freefitness.health.dto.SleepAnalysis.DailyStat> buildWeeklySleepData(Long userId) {
+        LocalDate now = LocalDate.now();
+        List<SleepRecord> records = sleepRepo.findByUserIdOrderByStartTimeDesc(userId, PageRequest.of(0, 7));
+        Map<String, com.freefitness.health.dto.SleepAnalysis.DailyStat> statMap = new java.util.TreeMap<>();
+        for (int i = 0; i < 7; i++) {
+            String date = now.minusDays(i).toString();
+            statMap.put(date, new com.freefitness.health.dto.SleepAnalysis.DailyStat(date, 0.0, 0));
+        }
+        for (SleepRecord r : records) {
+            String date = r.getStartTime().substring(0, 10);
+            if (statMap.containsKey(date)) {
+                com.freefitness.health.dto.SleepAnalysis.DailyStat ds = statMap.get(date);
+                ds.setDuration(r.getDurationHours());
+                ds.setQuality(r.getQuality() != null ? r.getQuality() : 0);
+            }
+        }
+        return new java.util.ArrayList<>(statMap.values());
+    }
+
+    private List<com.freefitness.health.dto.ExerciseAnalysis.DailyStat> buildWeeklyData(Long userId) {
+        LocalDate now = LocalDate.now();
+        String endDate = now.toString() + "T23:59:59";
+        String startDateWeekly = now.minusDays(6).toString() + "T00:00:00";
+        List<ExerciseSession> weeklySessions = sessionRepo.findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(userId, startDateWeekly, endDate);
+        Map<String, com.freefitness.health.dto.ExerciseAnalysis.DailyStat> statMap = new java.util.TreeMap<>();
+        for (int i = 0; i < 7; i++) {
+            String date = now.minusDays(i).toString();
+            statMap.put(date, new com.freefitness.health.dto.ExerciseAnalysis.DailyStat(date, 0.0, 0.0));
+        }
+        for (ExerciseSession s : weeklySessions) {
+            String date = s.getStartTime().substring(0, 10);
+            if (statMap.containsKey(date)) {
+                com.freefitness.health.dto.ExerciseAnalysis.DailyStat ds = statMap.get(date);
+                ds.setDistance(ds.getDistance() + (s.getDistance() / 1000.0));
+                ds.setCalories(ds.getCalories() + (s.getCalories() != null ? s.getCalories() : 0.0));
+            }
+        }
+        return new java.util.ArrayList<>(statMap.values());
     }
 }

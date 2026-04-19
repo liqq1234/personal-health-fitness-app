@@ -66,6 +66,9 @@ public class User {
     @Column(name = "cho_goal")
     private Double choGoal;
 
+    @Column(name = "water_goal")
+    private Double waterGoal; // in ml
+
     @Column(name = "action_rest_time")
     private Integer actionRestTime;
 

@@ -12,6 +12,7 @@ import com.freefitness.user.repository.UserRepository;
 import com.freefitness.user.repository.WeightTrendRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -33,6 +34,7 @@ public class UserService {
     private final WeightTrendRepository weightTrendRepository;
     private final IntakeDailyGoalRepository intakeDailyGoalRepository;
     private final FileStorageService storageService;
+    private final PasswordEncoder passwordEncoder;
 
     @Value("${storage.avatar-dir}")
     private String avatarDir;
@@ -139,5 +141,29 @@ public class UserService {
             intakeDailyGoalRepository.save(goal);
         }
         return intakeDailyGoalRepository.findByUserId(userId);
+    }
+
+    @Transactional
+    public void changePassword(Long userId, String oldPassword, String newPassword) {
+        User user = getUser(userId);
+        // 使用 PasswordEncoder 进行 matches 校验
+        if (!passwordEncoder.matches(oldPassword, user.getPassword())) {
+            throw new IllegalArgumentException("原密码错误");
+        }
+        // 使用 PasswordEncoder 进行 encode 加密
+        user.setPassword(passwordEncoder.encode(newPassword));
+        user.setGmtModified(LocalDateTime.now().format(FMT));
+        userRepository.save(user);
+    }
+
+    @Transactional
+    public void deleteUser(Long userId) {
+        // 软删除或硬删除，此处演示硬删除
+        userRepository.deleteById(userId);
+        // 级联删除相关记录逻辑此处省
+    }
+
+    public List<User> searchUsers(String query) {
+        return userRepository.findByUserNameContainingOrUserCodeContaining(query, query);
     }
 }

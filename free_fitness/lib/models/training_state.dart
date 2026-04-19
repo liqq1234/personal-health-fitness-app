@@ -261,10 +261,16 @@ class TrainingGroup {
 }
 
 class TrainingPlan {
-  int? planId; // 自增的，可以不传
+  int? planId;
   int planPeriod;
+  int? totalSets, restDuration, reminderMinutes;
   String planCode, planName, planCategory, planLevel;
-  String? description, contributor, gmtCreate, gmtModified;
+  String? sportType,
+      startTime,
+      description,
+      contributor,
+      gmtCreate,
+      gmtModified;
 
   TrainingPlan({
     this.planId,
@@ -273,6 +279,11 @@ class TrainingPlan {
     required this.planCategory,
     required this.planLevel,
     required this.planPeriod,
+    this.totalSets,
+    this.sportType,
+    this.restDuration,
+    this.startTime,
+    this.reminderMinutes,
     this.description,
     this.contributor,
     this.gmtCreate,
@@ -287,6 +298,11 @@ class TrainingPlan {
       'plan_category': planCategory,
       'plan_level': planLevel,
       'plan_period': planPeriod,
+      'total_sets': totalSets,
+      'sport_type': sportType,
+      'rest_duration': restDuration,
+      'start_time': startTime,
+      'reminder_minutes': reminderMinutes,
       'description': description,
       'contributor': contributor,
       'gmt_create': gmtCreate,
@@ -302,6 +318,17 @@ class TrainingPlan {
       planCategory: (map['plan_category'] ?? map['planCategory']) as String,
       planLevel: (map['plan_level'] ?? map['planLevel']) as String,
       planPeriod: map['plan_period'] ?? map['planPeriod'] ?? 0,
+      totalSets: map['total_sets'] is String
+          ? int.tryParse(map['total_sets'])
+          : map['total_sets'] ?? map['totalSets'],
+      sportType: map['sport_type'] ?? map['sportType'],
+      restDuration: map['rest_duration'] is String
+          ? int.tryParse(map['rest_duration'])
+          : map['rest_duration'] ?? map['restDuration'],
+      startTime: map['start_time'] ?? map['startTime'],
+      reminderMinutes: map['reminder_minutes'] is String
+          ? int.tryParse(map['reminder_minutes'])
+          : map['reminder_minutes'] ?? map['reminderMinutes'],
       description: map['description'] as String?,
       contributor: map['contributor'] as String?,
       gmtCreate: map['gmt_create'] ?? map['gmtCreate'],
@@ -317,6 +344,11 @@ class TrainingPlan {
       'planCategory': planCategory,
       'planLevel': planLevel,
       'planPeriod': planPeriod,
+      'totalSets': totalSets,
+      'sportType': sportType,
+      'restDuration': restDuration,
+      'startTime': startTime,
+      'reminderMinutes': reminderMinutes,
       'description': description,
       'contributor': contributor,
       'gmtCreate': gmtCreate,
@@ -385,10 +417,13 @@ class PlanHasGroup {
 class TrainedDetailLog {
   int? trainedDetailLogId; // 自增的，可以不传
   int? dayNumber, consumption;
-  String? planName, planCategory, planLevel;
+  String? planName, planCategory, planLevel, feedbackTag;
   String? groupName, groupCategory, groupLevel;
   String trainedDate, trainedStartTime, trainedEndTime;
   int userId, trainedDuration, totolPausedTime, totalRestTime;
+  int? planId;
+  int? reps;
+  double? weights;
 
   TrainedDetailLog({
     this.trainedDetailLogId,
@@ -407,6 +442,10 @@ class TrainedDetailLog {
     required this.trainedDuration,
     required this.totolPausedTime,
     required this.totalRestTime,
+    this.planId,
+    this.feedbackTag,
+    this.reps,
+    this.weights,
   });
 
   // 转换成一个Map。键必须对应于数据库中的列名。
@@ -428,6 +467,10 @@ class TrainedDetailLog {
       'trained_duration': trainedDuration,
       'totol_paused_time': totolPausedTime,
       'total_rest_time': totalRestTime,
+      'plan_id': planId,
+      'feedback_tag': feedbackTag,
+      'reps': reps,
+      'weights': weights,
     };
   }
 
@@ -453,13 +496,29 @@ class TrainedDetailLog {
       trainedDuration: map['trained_duration'] ?? map['trainedDuration'],
       totolPausedTime: map['totol_paused_time'] ?? map['totolPausedTime'],
       totalRestTime: map['total_rest_time'] ?? map['totalRestTime'],
+      planId: map['plan_id'] ?? map['planId'],
+      feedbackTag: map['feedback_tag'] ?? map['feedbackTag'],
+      reps: map['reps'] as int?,
+      weights: (map['weights'] ?? map['weights'])?.toDouble(),
     );
   }
 
   Map<String, dynamic> toJson() {
+    // 确保 trainedDate 不超过12个字符，符合数据库 varchar(12) 限制
+    String formattedTrainedDate = trainedDate;
+    if (trainedDate.length > 10) {
+      // 如果包含时间部分（有空格），取日期部分
+      if (trainedDate.contains(' ')) {
+        formattedTrainedDate = trainedDate.split(' ')[0];
+      } else if (trainedDate.length > 12) {
+        // 如果还是太长，截断为12个字符
+        formattedTrainedDate = trainedDate.substring(0, 12);
+      }
+    }
+
     return {
       'trainedDetailLogId': trainedDetailLogId,
-      'trainedDate': trainedDate,
+      'trainedDate': formattedTrainedDate,
       'userId': userId,
       'planName': planName,
       'planCategory': planCategory,
@@ -474,6 +533,8 @@ class TrainedDetailLog {
       'trainedDuration': trainedDuration,
       'totolPausedTime': totolPausedTime,
       'totalRestTime': totalRestTime,
+      'planId': planId,
+      'feedbackTag': feedbackTag,
     };
   }
 
@@ -570,6 +631,9 @@ class TrainingSchedule {
   String startTime;
   String endTime;
   String status; // PENDING, COMPLETED, MISSED
+  int? totalSets;
+  int? restDuration;
+  String? sportType;
   int remindBeforeMinutes;
   int remindSent;
   String? gmtCreate, gmtModified;
@@ -584,6 +648,9 @@ class TrainingSchedule {
     required this.startTime,
     required this.endTime,
     this.status = 'PENDING',
+    this.totalSets,
+    this.restDuration,
+    this.sportType,
     this.remindBeforeMinutes = 15,
     this.remindSent = 0,
     this.gmtCreate,
@@ -601,6 +668,9 @@ class TrainingSchedule {
       'start_time': startTime,
       'end_time': endTime,
       'status': status,
+      'total_sets': totalSets,
+      'rest_duration': restDuration,
+      'sport_type': sportType,
       'remind_before_minutes': remindBeforeMinutes,
       'remind_sent': remindSent,
       'gmt_create': gmtCreate,
@@ -619,6 +689,9 @@ class TrainingSchedule {
       startTime: (map['start_time'] ?? map['startTime']) as String,
       endTime: (map['end_time'] ?? map['endTime']) as String,
       status: (map['status'] ?? 'PENDING') as String,
+      totalSets: map['total_sets'] ?? map['totalSets'],
+      restDuration: map['rest_duration'] ?? map['restDuration'],
+      sportType: map['sport_type'] ?? map['sportType'],
       remindBeforeMinutes:
           map['remind_before_minutes'] ?? map['remindBeforeMinutes'] ?? 15,
       remindSent: map['remind_sent'] ?? map['remindSent'] ?? 0,
@@ -638,6 +711,9 @@ class TrainingSchedule {
       'startTime': startTime,
       'endTime': endTime,
       'status': status,
+      'totalSets': totalSets,
+      'restDuration': restDuration,
+      'sportType': sportType,
       'remindBeforeMinutes': remindBeforeMinutes,
       'remindSent': remindSent,
       'gmtCreate': gmtCreate,
@@ -655,6 +731,9 @@ class TrainingSchedule {
     String? startTime,
     String? endTime,
     String? status,
+    int? totalSets,
+    int? restDuration,
+    String? sportType,
     int? remindBeforeMinutes,
     int? remindSent,
     String? gmtCreate,
@@ -670,6 +749,9 @@ class TrainingSchedule {
       startTime: startTime ?? this.startTime,
       endTime: endTime ?? this.endTime,
       status: status ?? this.status,
+      totalSets: totalSets ?? this.totalSets,
+      restDuration: restDuration ?? this.restDuration,
+      sportType: sportType ?? this.sportType,
       remindBeforeMinutes: remindBeforeMinutes ?? this.remindBeforeMinutes,
       remindSent: remindSent ?? this.remindSent,
       gmtCreate: gmtCreate ?? this.gmtCreate,

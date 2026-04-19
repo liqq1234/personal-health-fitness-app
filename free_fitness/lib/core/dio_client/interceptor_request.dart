@@ -19,7 +19,13 @@ class RequestInterceptor extends Interceptor {
 
     // 2026-04-17 根据用户要求，彻底移除本地后端的 Authorization Token 注入逻辑，应用本地化运行。
     // 注意：AI 等外部接口仍需保留 Authorization 头，所以这里只针对 apiBaseUrl 路径进行操作。
-    if (options.path.startsWith(apiBaseUrl)) {
+    // 标准化检查：只要是发往内部 API (完整路径或以 /api/v1, /users, /training 等开头的局部路径) 都要移除。
+    if (options.path.startsWith(apiBaseUrl) ||
+        options.path.startsWith('/api/v1') ||
+        options.path.startsWith('/users') ||
+        options.path.startsWith('/training') ||
+        options.path.startsWith('/dietary') ||
+        options.path.startsWith('/health')) {
       options.headers.remove('Authorization');
     }
     return handler.next(options);

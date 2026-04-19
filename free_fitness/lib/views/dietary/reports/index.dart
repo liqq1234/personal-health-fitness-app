@@ -975,17 +975,14 @@ class _DietaryReportsState extends State<DietaryReports> {
     // 但更好的做法是单独查询过去7天的数据。
     // 目前 _queryDailyFoodItemList 会根据 dropdownValue 更新 dfiwfsList。
 
-    var weekData = formatWeekData(dfiwfsList);
-
     // 我们调用 analyzeWeeklyIntake 获取更详细的数据
     var analysis = DietaryAnalysisService.analyzeWeeklyIntake(
       dfiwfsList,
-      loginUser.currentWeight?.toDouble() ?? 0.0,
-      valueRDA,
+      loginUser,
     );
 
     var advice = DietaryAnalysisService.getAnalysisAdvice(
-      weekData,
+      analysis,
       CusAL.of(context),
       rDA: valueRDA.toDouble(),
     );

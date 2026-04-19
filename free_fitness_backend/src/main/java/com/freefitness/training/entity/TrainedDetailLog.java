@@ -25,6 +25,9 @@ public class TrainedDetailLog {
     @Column(name = "trained_date", length = 12)
     private String trainedDate;
 
+    @Column(name = "plan_id")
+    private Long planId;
+
     @Column(name = "plan_name", length = 128)
     private String planName;
 
@@ -63,4 +66,7 @@ public class TrainedDetailLog {
 
     @Column(name = "total_rest_time", nullable = false)
     private Integer totalRestTime;
+
+    @Column(name = "feedback_tag", length = 50)
+    private String feedbackTag; // EXCELLENT, REMIND, WARNING
 }

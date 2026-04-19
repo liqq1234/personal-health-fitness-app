@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../core/storage/db_health_helper.dart';
 import '../../models/health_models.dart';
 import 'sleep_entry.dart';
+import '../training/sleep_insights.dart';
 
 class SleepReportPage extends StatefulWidget {
   const SleepReportPage({super.key});
@@ -18,6 +19,7 @@ class _SleepReportPageState extends State<SleepReportPage>
   final _dbHelper = DBHealthHelper();
   List<SleepRecord> _records = [];
   bool _isLoading = true;
+  int _selectedDays = 7; // 默认 7 天
 
   @override
   void initState() {
@@ -36,15 +38,7 @@ class _SleepReportPageState extends State<SleepReportPage>
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     DateTime now = DateTime.now();
-    DateTime startDate;
-
-    if (_tabController.index == 0) {
-      // 周视图：过去 7 天
-      startDate = now.subtract(const Duration(days: 7));
-    } else {
-      // 月视图：过去 30 天
-      startDate = now.subtract(const Duration(days: 30));
-    }
+    DateTime startDate = now.subtract(Duration(days: _selectedDays));
 
     final records = await _dbHelper.querySleepList(
       startDate: DateFormat('yyyy-MM-dd').format(startDate),
@@ -76,37 +70,18 @@ class _SleepReportPageState extends State<SleepReportPage>
         bottom: TabBar(
           controller: _tabController,
           tabs: const [
-            Tab(text: '最近 7 天 (Week)'),
-            Tab(text: '最近 30 天 (Month)'),
+            Tab(text: '睡眠报表'),
+            Tab(text: '睡眠分析'),
           ],
         ),
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                _buildSummaryCard(colorScheme),
-                Expanded(
-                  child: _records.isEmpty
-                      ? Center(
-                          child: Text(
-                            '暂无睡眠记录',
-                            style: TextStyle(
-                              color: colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                        )
-                      : ListView.builder(
-                          padding: EdgeInsets.symmetric(horizontal: 16.sp),
-                          itemCount: _records.length,
-                          itemBuilder: (context, index) {
-                            final r = _records[index];
-                            return _buildRecordItem(r, colorScheme);
-                          },
-                        ),
-                ),
-              ],
-            ),
+      body: TabBarView(
+        controller: _tabController,
+        children: [
+          _buildRecordsListView(colorScheme),
+          const SleepInsightsPage(showAppBar: false),
+        ],
+      ),
       floatingActionButton: FloatingActionButton(
         onPressed: () => Navigator.push(
           context,
@@ -114,6 +89,62 @@ class _SleepReportPageState extends State<SleepReportPage>
         ).then((_) => _loadData()),
         child: const Icon(Icons.add),
       ),
+    );
+  }
+
+  Widget _buildRecordsListView(ColorScheme colorScheme) {
+    if (_isLoading) return const Center(child: CircularProgressIndicator());
+
+    return Column(
+      children: [
+        Padding(
+          padding: EdgeInsets.only(top: 12.sp),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ChoiceChip(
+                label: const Text('最近 7 天'),
+                selected: _selectedDays == 7,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedDays = 7);
+                    _loadData();
+                  }
+                },
+              ),
+              SizedBox(width: 16.sp),
+              ChoiceChip(
+                label: const Text('最近 30 天'),
+                selected: _selectedDays == 30,
+                onSelected: (selected) {
+                  if (selected) {
+                    setState(() => _selectedDays = 30);
+                    _loadData();
+                  }
+                },
+              ),
+            ],
+          ),
+        ),
+        _buildSummaryCard(colorScheme),
+        Expanded(
+          child: _records.isEmpty
+              ? Center(
+                  child: Text(
+                    '暂无睡眠记录',
+                    style: TextStyle(color: colorScheme.onSurfaceVariant),
+                  ),
+                )
+              : ListView.builder(
+                  padding: EdgeInsets.symmetric(horizontal: 16.sp),
+                  itemCount: _records.length,
+                  itemBuilder: (context, index) {
+                    final r = _records[index];
+                    return _buildRecordItem(r, colorScheme);
+                  },
+                ),
+        ),
+      ],
     );
   }
 

@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "requirements-analyst": {
+      "source": "nahisaho/musubi",
+      "sourceType": "github",
+      "computedHash": "e9212ec0fb9aa9e601cd4ba30994622ec362c53d4af3ce49535529db40321cb7"
+    }
+  }
+}

@@ -103,6 +103,9 @@ class DietLog {
   String foodName;
   double calories;
   double protein;
+  double fat;
+  double carbs;
+  double water;
   String gmtCreate;
 
   DietLog({
@@ -112,6 +115,9 @@ class DietLog {
     required this.foodName,
     required this.calories,
     required this.protein,
+    this.fat = 0.0,
+    this.carbs = 0.0,
+    this.water = 0.0,
     required this.gmtCreate,
   });
 
@@ -123,6 +129,9 @@ class DietLog {
       'food_name': foodName,
       'calories': calories,
       'protein': protein,
+      'fat': fat,
+      'carbs': carbs,
+      'water': water,
       'gmt_create': gmtCreate,
     };
   }
@@ -135,6 +144,9 @@ class DietLog {
       foodName: map['food_name'] ?? map['foodName'] ?? "",
       calories: (map['calories'] ?? 0.0).toDouble(),
       protein: (map['protein'] ?? 0.0).toDouble(),
+      fat: (map['fat'] ?? 0.0).toDouble(),
+      carbs: (map['carbs'] ?? 0.0).toDouble(),
+      water: (map['water'] ?? 0.0).toDouble(),
       gmtCreate: map['gmt_create'] ?? map['gmtCreate'] ?? "",
     );
   }
@@ -147,6 +159,9 @@ class DietLog {
       'foodName': foodName,
       'calories': calories,
       'protein': protein,
+      'fat': fat,
+      'carbs': carbs,
+      'water': water,
       'gmtCreate': gmtCreate,
     };
   }

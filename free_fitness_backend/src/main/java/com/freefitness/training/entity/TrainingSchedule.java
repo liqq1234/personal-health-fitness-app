@@ -42,6 +42,15 @@ public class TrainingSchedule {
     @Column(name = "status", nullable = false, length = 20)
     private String status = "PENDING"; // PENDING, COMPLETED, MISSED
 
+    @Column(name = "total_sets")
+    private Integer totalSets;
+
+    @Column(name = "rest_duration")
+    private Integer restDuration;
+
+    @Column(name = "sport_type", length = 50)
+    private String sportType;
+
     @Column(name = "remind_before_minutes")
     private Integer remindBeforeMinutes = 15;
 

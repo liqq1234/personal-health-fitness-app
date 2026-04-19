@@ -35,6 +35,7 @@ class HttpUtils {
   static Future post({
     required String path,
     dynamic data,
+    Map<String, dynamic>? queryParameters, // 2024-04-18 新增支持参数在url
     dynamic headers,
     CusRespType? responseType,
     String? contentType,
@@ -46,6 +47,7 @@ class HttpUtils {
       path: path,
       method: CusHttpMethod.post,
       data: data,
+      queryParameters: queryParameters,
       responseType: responseType,
       contentType: contentType,
       headers: headers,
@@ -55,10 +57,11 @@ class HttpUtils {
     );
   }
 
-  /// post
+  /// put
   static Future put({
     required String path,
     dynamic data,
+    Map<String, dynamic>? queryParameters, // 2024-04-18 新增支持参数在url
     dynamic headers,
     CusRespType? responseType,
     String? contentType,
@@ -70,6 +73,7 @@ class HttpUtils {
       path: path,
       method: CusHttpMethod.put,
       data: data,
+      queryParameters: queryParameters,
       responseType: responseType,
       contentType: contentType,
       headers: headers,
@@ -82,6 +86,7 @@ class HttpUtils {
   /// delete
   static Future delete({
     required String path,
+    dynamic data,
     Map<String, dynamic>? queryParameters,
     dynamic headers,
     CusRespType? responseType,
@@ -94,6 +99,7 @@ class HttpUtils {
       path: path,
       method: CusHttpMethod.delete,
       queryParameters: queryParameters,
+      data: data,
       responseType: responseType,
       contentType: contentType,
       headers: headers,
@@ -103,17 +109,3 @@ class HttpUtils {
     );
   }
 }
-
-/*
-使用方法: 
-import 'cus_dio_client.dart';
-
-HttpUtils.get(
-　　path: '11111'
-);
-
-　HttpUtils.post(
-　　path: '1111',
-　　method: HttpMethod.post //可以更改其他的
-);
-*/

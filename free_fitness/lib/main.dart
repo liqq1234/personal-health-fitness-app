@@ -1,10 +1,7 @@
 import 'dart:async';
-import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
-import 'package:sqflite/sqflite.dart';
 
 import 'package:get_storage/get_storage.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -37,11 +34,6 @@ class AppCatchError {
     runZonedGuarded(() {
       //受保护的代码块
       WidgetsFlutterBinding.ensureInitialized();
-
-      if (Platform.isWindows || Platform.isLinux) {
-        sqfliteFfiInit();
-        databaseFactory = databaseFactoryFfi;
-      }
 
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,

@@ -36,11 +36,21 @@ public class UserController {
     @GetMapping("/{userId}")
     public Result<User> getUser(@PathVariable Long userId,
                                 @AuthenticationPrincipal Long currentUserId) {
-        // 2026-04-17 如果 currentUserId 为空（Header 识别失败），在 permitAll 模式下暂且信任 path 的 ID
+        User user = userService.getUser(userId);
+
         if (currentUserId != null && !userId.equals(currentUserId)) {
-            return Result.forbidden("无权访问他人数据");
+            // Return public info only for other users
+            User publicUser = new User();
+            publicUser.setUserId(user.getUserId());
+            publicUser.setUserName(user.getUserName());
+            publicUser.setUserCode(user.getUserCode());
+            publicUser.setAvatar(user.getAvatar());
+            publicUser.setGender(user.getGender());
+            publicUser.setDescription(user.getDescription());
+            return Result.success(publicUser);
         }
-        return Result.success(userService.getUser(userId));
+
+        return Result.success(user);
     }
 
     /** 1.5 PUT /api/v1/users/{userId} */
@@ -103,5 +113,33 @@ public class UserController {
                                                            @RequestBody List<IntakeDailyGoal> goals) {
         if (currentUserId != null && !userId.equals(currentUserId)) return Result.forbidden("无权操作");
         return Result.success(userService.upsertIntakeGoals(userId, goals));
+    }
+
+    /** 4.1 PUT /api/v1/users/{userId}/password */
+    @Operation(summary = "修改用户密码")
+    @PutMapping("/{userId}/password")
+    public Result<Void> changePassword(@PathVariable Long userId,
+                                       @AuthenticationPrincipal Long currentUserId,
+                                       @RequestParam String oldPassword,
+                                       @RequestParam String newPassword) {
+        if (currentUserId != null && !userId.equals(currentUserId)) return Result.forbidden("无权操作");
+        userService.changePassword(userId, oldPassword, newPassword);
+        return Result.success();
+    }
+
+    /** 4.2 DELETE /api/v1/users/{userId} */
+    @Operation(summary = "注销账号")
+    @DeleteMapping("/{userId}")
+    public Result<Void> deleteUser(@PathVariable Long userId,
+                                   @AuthenticationPrincipal Long currentUserId) {
+        if (currentUserId != null && !userId.equals(currentUserId)) return Result.forbidden("无权操作");
+        userService.deleteUser(userId);
+        return Result.success();
+    }
+
+    @Operation(summary = "搜索用户")
+    @GetMapping("/search")
+    public Result<List<User>> searchUsers(@RequestParam String query) {
+        return Result.success(userService.searchUsers(query));
     }
 }

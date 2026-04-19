@@ -1,23 +1,21 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:photo_view/photo_view.dart';
-import '../../core/utils/tool_widgets.dart';
 import '../../core/constants/constants.dart';
 import '../../core/storage/db_user_helper.dart';
+import '../../core/utils/tool_widgets.dart';
 import '../../layout/themes/cus_font_size.dart';
+import 'package:flutter_screenutil/flutter_screenutil.dart';
+import 'package:photo_view/photo_view.dart';
 import '../../models/cus_app_localizations.dart';
 import '../../models/user_state.dart';
-
 import 'more_settings/index.dart';
-import 'training_setting/index.dart';
 import 'user_info/index.dart';
 import 'user_info/modify_user/index.dart';
-import 'weight_change_record/index.dart';
 import '../auth/login_page.dart';
 import '../../core/utils/file_utils.dart';
+import 'account_management/index.dart';
 
 class UserAndSettings extends StatefulWidget {
   const UserAndSettings({super.key});
@@ -48,7 +46,9 @@ class _UserAndSettingsState extends State<UserAndSettings> {
     super.initState();
 
     currentUserId = CacheUser.userId;
-    _queryLoginedUserInfo();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _queryLoginedUserInfo();
+    });
   }
 
   // 查询登录用户的信息
@@ -279,11 +279,7 @@ class _UserAndSettingsState extends State<UserAndSettings> {
                     padding: EdgeInsets.symmetric(horizontal: 16.sp),
                     child: Column(
                       children: [
-                        _buildInfoAndWeightChangeRow(),
-                        SizedBox(height: 12.sp),
-                        _buildIntakeGoalAndRestTimeRow(),
-                        SizedBox(height: 12.sp),
-                        _buildBakAndRestoreAndMoreSettingRow(),
+                        _buildSimplifiedMenu(),
                         SizedBox(height: 30.sp),
                         // 退出登录按钮
                         SizedBox(
@@ -310,6 +306,50 @@ class _UserAndSettingsState extends State<UserAndSettings> {
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _buildSimplifiedMenu() {
+    return Column(
+      children: [
+        NewCusSettingCard(
+          leadingIcon: Icons.account_circle_outlined,
+          title: "基本信息", // 用户名、身高、体重、性别、生日、个人简介
+          subtitle: "查看并修改您的健康档案与个人简介",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const UserInfo()),
+            ).then((value) => _queryLoginedUserInfo());
+          },
+        ),
+        SizedBox(height: 12.sp),
+        NewCusSettingCard(
+          leadingIcon: Icons.settings_suggest_outlined,
+          title: "系统设置", // 主题、语言切换
+          subtitle: "个性化您的应用外观、语言与通知设置",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => const MoreSettings()),
+            );
+          },
+        ),
+        SizedBox(height: 12.sp),
+        NewCusSettingCard(
+          leadingIcon: Icons.manage_accounts_outlined,
+          title: "账号管理", // 修改账号、修改密码、注销账号
+          subtitle: "管理您的登录凭据与账号安全性",
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => AccountManagement(user: userInfo),
+              ),
+            ).then((value) => _queryLoginedUserInfo());
+          },
+        ),
+      ],
     );
   }
 
@@ -454,100 +494,20 @@ class _UserAndSettingsState extends State<UserAndSettings> {
       ),
     ];
   }
-
-  Row _buildInfoAndWeightChangeRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: NewCusSettingCard(
-            leadingIcon: Icons.account_circle_outlined,
-            title: CusAL.of(context).settingLabels('0'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const UserInfo()),
-              ).then((value) {
-                _queryLoginedUserInfo();
-              });
-            },
-          ),
-        ),
-        SizedBox(width: 12.sp),
-        Expanded(
-          child: NewCusSettingCard(
-            leadingIcon: Icons.table_chart_rounded,
-            title: CusAL.of(context).settingLabels('1'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => WeightChangeRecord(userInfo: userInfo),
-                ),
-              ).then((value) {
-                if (value != null && value == true) {
-                  _queryLoginedUserInfo();
-                }
-              });
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Row _buildIntakeGoalAndRestTimeRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: NewCusSettingCard(
-            leadingIcon: Icons.directions_run_rounded,
-            title: CusAL.of(context).settingLabels('3'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => TrainingSetting(userInfo: userInfo),
-                ),
-              ).then((value) {
-                _queryLoginedUserInfo();
-              });
-            },
-          ),
-        ),
-      ],
-    );
-  }
-
-  Row _buildBakAndRestoreAndMoreSettingRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: NewCusSettingCard(
-            leadingIcon: Icons.settings_rounded,
-            title: CusAL.of(context).settingLabels('5'),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const MoreSettings()),
-              );
-            },
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 // 每个设置card抽出来复用
 class NewCusSettingCard extends StatelessWidget {
   final IconData leadingIcon;
   final String title;
+  final String subtitle;
   final VoidCallback onTap;
 
   const NewCusSettingCard({
     super.key,
     required this.leadingIcon,
     required this.title,
+    required this.subtitle,
     required this.onTap,
   });
 
@@ -561,28 +521,55 @@ class NewCusSettingCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(16.sp),
         child: Container(
-          padding: EdgeInsets.symmetric(vertical: 20.sp, horizontal: 8.sp),
+          padding: EdgeInsets.symmetric(vertical: 16.sp, horizontal: 16.sp),
           decoration: BoxDecoration(
             color: colorScheme.surfaceVariant.withOpacity(0.3),
             borderRadius: BorderRadius.circular(16.sp),
             border: Border.all(color: colorScheme.outlineVariant, width: 0.5),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            mainAxisAlignment: MainAxisAlignment.center,
+          child: Row(
             children: [
-              Icon(leadingIcon, size: 32.sp, color: colorScheme.primary),
-              SizedBox(height: 12.sp),
-              Text(
-                title,
-                style: TextStyle(
-                  fontSize: 14.sp,
-                  fontWeight: FontWeight.bold,
-                  color: colorScheme.onSurface,
+              Container(
+                padding: EdgeInsets.all(12.sp),
+                decoration: BoxDecoration(
+                  color: colorScheme.primaryContainer.withOpacity(0.4),
+                  borderRadius: BorderRadius.circular(12.sp),
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                child: Icon(
+                  leadingIcon,
+                  size: 28.sp,
+                  color: colorScheme.primary,
+                ),
+              ),
+              SizedBox(width: 16.sp),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 16.sp,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.onSurface,
+                      ),
+                    ),
+                    SizedBox(height: 4.sp),
+                    Text(
+                      subtitle,
+                      style: TextStyle(
+                        fontSize: 12.sp,
+                        color: colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                size: 20.sp,
+                color: colorScheme.onSurfaceVariant,
               ),
             ],
           ),

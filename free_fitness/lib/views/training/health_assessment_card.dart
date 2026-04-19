@@ -7,17 +7,15 @@ import '../../models/cus_app_localizations.dart';
 class HealthAssessmentCard extends StatelessWidget {
   final int steps;
   final double sleepHours;
+  final bool hasTrainingLogs;
   final List<TrainingSchedule> todaySchedules;
-  final String dietAdvice;
-  final bool isAnalyzing;
 
   const HealthAssessmentCard({
     super.key,
     required this.steps,
     required this.sleepHours,
     required this.todaySchedules,
-    required this.dietAdvice,
-    this.isAnalyzing = false,
+    this.hasTrainingLogs = false,
   });
 
   Widget _buildAssessmentItem(
@@ -76,8 +74,17 @@ class HealthAssessmentCard extends StatelessWidget {
     bool stepsDone = steps >= 10000;
     bool sleepDone = sleepHours >= 8.0;
     bool trainingDone =
-        todaySchedules.isEmpty ||
-        todaySchedules.every((s) => s.status == 'COMPLETED');
+        hasTrainingLogs ||
+        (todaySchedules.isNotEmpty &&
+            todaySchedules.every((s) => s.status == 'COMPLETED'));
+
+    // 如果没跟练且没排程，且步数和睡眠都不足，可能就不显示已完成，但根据用户要求，我们要明确状态
+    String trainingStatusText = trainingDone
+        ? al.trainingCompleted
+        : al.trainingPending;
+    if (todaySchedules.isEmpty && !hasTrainingLogs) {
+      trainingStatusText = al.noTrainingScheduled;
+    }
 
     return Card(
       margin: EdgeInsets.all(10.sp),
@@ -117,7 +124,7 @@ class HealthAssessmentCard extends StatelessWidget {
             _buildAssessmentItem(
               context,
               al.trainingStatus,
-              trainingDone ? al.trainingCompleted : al.trainingPending,
+              trainingStatusText,
               trainingDone,
               Icons.fitness_center,
             ),
@@ -128,58 +135,6 @@ class HealthAssessmentCard extends StatelessWidget {
               sleepDone,
               Icons.bedtime,
             ),
-            if (dietAdvice.isNotEmpty || isAnalyzing) ...[
-              Divider(height: 24.sp),
-              Row(
-                children: [
-                  Icon(
-                    Icons.restaurant,
-                    size: 18.sp,
-                    color: colorScheme.secondary,
-                  ),
-                  SizedBox(width: 8.sp),
-                  Text(
-                    'AI 饮食建议',
-                    style: TextStyle(
-                      fontSize: 14.sp,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  if (isAnalyzing) ...[
-                    SizedBox(width: 12.sp),
-                    SizedBox(
-                      width: 12.sp,
-                      height: 12.sp,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-              SizedBox(height: 8.sp),
-              if (dietAdvice.isNotEmpty)
-                Text(
-                  dietAdvice,
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    color: colorScheme.onSurfaceVariant,
-                    height: 1.5,
-                  ),
-                ),
-              if (isAnalyzing && dietAdvice.isEmpty)
-                Text(
-                  "AI营养师正在努力思考您的饮食报告...",
-                  style: TextStyle(
-                    fontSize: 13.sp,
-                    color: colorScheme.onSurfaceVariant.withOpacity(0.6),
-                    fontStyle: FontStyle.italic,
-                  ),
-                ),
-            ],
           ],
         ),
       ),

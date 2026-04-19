@@ -64,7 +64,7 @@ class HttpRequest {
         requestHeader: true,
         responseHeader: true,
         requestBody: true,
-        responseBody: true,
+        responseBody: false,
         // requestBody: false,
         // responseBody: false,
         // filter: (options, args) {

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_form_builder/flutter_form_builder.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:form_builder_file_picker/form_builder_file_picker.dart';
-import 'package:sqflite/sqflite.dart';
 
 import '../../../core/constants/constants.dart';
 import '../../../core/storage/db_dietary_helper.dart';
@@ -28,7 +27,7 @@ class DetailModifyFood extends StatefulWidget {
 class _DetailModifyFoodState extends State<DetailModifyFood> {
   final DBDietaryHelper _dietaryHelper = DBDietaryHelper();
 
-//  食物添加的表单key
+  //  食物添加的表单key
   final _foodFormKey = GlobalKey<FormBuilderState>();
 
   // 默认显示的图片列表
@@ -64,9 +63,9 @@ class _DetailModifyFoodState extends State<DetailModifyFood> {
         category: temp?["category"],
         photos: temp?["images"] != null
             ? (temp?["images"] as List<PlatformFile>)
-                .map((e) => e.path)
-                .toList()
-                .join(",")
+                  .map((e) => e.path)
+                  .toList()
+                  .join(",")
             : null,
         contributor: CacheUser.userName,
         gmtCreate: getCurrentDateTime(),
@@ -83,18 +82,7 @@ class _DetailModifyFoodState extends State<DetailModifyFood> {
         }
       } catch (e) {
         // 或者显示一个SnackBar
-        var errorMessage = "数据插入数据库失败,可能该产品已存在";
-
-        if (!mounted) return;
-        if (e is DatabaseException) {
-          /// 它默认有判断是否是哪种错误，常见的唯一值重复还可以指定检查哪个栏位重复。
-          if (e.isUniqueConstraintError()) {
-            // errorMessage = '该【食物品牌】+【产品名称】已存在！';
-            errorMessage = CusAL.of(context).uniqueErrorText(
-              "${CusAL.of(context).foodLabels('0')}(${CusAL.of(context).foodLabels('1')})",
-            );
-          }
-        }
+        String errorMessage = e.toString();
 
         // 在底部显示错误信息
         if (!mounted) return;

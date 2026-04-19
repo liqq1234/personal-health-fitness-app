@@ -51,4 +51,34 @@ class UserApiService {
       return null;
     }
   }
+
+  /// 修改密码
+  Future<bool> changePassword(
+    int userId,
+    String oldPassword,
+    String newPassword,
+  ) async {
+    try {
+      var response = await HttpUtils.put(
+        path: "/users/$userId/password",
+        queryParameters: {
+          "oldPassword": oldPassword,
+          "newPassword": newPassword,
+        },
+      );
+      return response != null && response['code'] == 200;
+    } catch (e) {
+      rethrow;
+    }
+  }
+
+  /// 注销账号
+  Future<bool> deleteUser(int userId) async {
+    try {
+      var response = await HttpUtils.delete(path: "/users/$userId");
+      return response != null && response['code'] == 200;
+    } catch (e) {
+      rethrow;
+    }
+  }
 }

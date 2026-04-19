@@ -71,6 +71,9 @@ public class ServingInfo {
     @Column(name = "potassium")
     private Double potassium;
 
+    @Column(name = "water")
+    private Double water; // 水分 (g 或 ml)
+
     @Column(name = "contributor", length = 64)
     private String contributor;
 

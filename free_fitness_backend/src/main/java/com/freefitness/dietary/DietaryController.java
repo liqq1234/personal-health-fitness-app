@@ -28,6 +28,7 @@ import java.util.List;
 public class DietaryController {
 
     private final DietaryService dietaryService;
+    private final AiDietaryService aiDietaryService;
 
     // ──────── 4.2 食物库 ────────
 
@@ -162,5 +163,22 @@ public class DietaryController {
             @AuthenticationPrincipal Long userId,
             @RequestParam String date) {
         return Result.success(dietaryService.getMealPhotos(userId, date));
+    }
+
+    // ──────── 4.7 AI 辅助 ────────
+
+    @Operation(summary = "AI 模糊识别饮食文本")
+    @PostMapping("/parse-ai")
+    public Result<com.freefitness.dietary.dto.AiParseResponse> parseAi(@RequestBody String text) {
+        return Result.success(aiDietaryService.parseText(text));
+    }
+
+    @Operation(summary = "获取当日营养分析与建议")
+    @GetMapping("/analysis")
+    public Result<com.freefitness.dietary.dto.NutritionAnalysis> getAnalysis(
+            @AuthenticationPrincipal Long userId,
+            @RequestParam(required = false) String date) {
+        String d = date != null ? date : LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd"));
+        return Result.success(dietaryService.getNutritionAnalysis(userId, d));
     }
 }

@@ -4,6 +4,9 @@ import com.freefitness.common.service.FileStorageService;
 import com.freefitness.dietary.dto.DailySummary;
 import com.freefitness.dietary.entity.*;
 import com.freefitness.dietary.repository.*;
+import com.freefitness.user.entity.User;
+import com.freefitness.user.repository.UserRepository;
+import com.freefitness.dietary.dto.NutritionAnalysis;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
@@ -31,6 +34,8 @@ public class DietaryService {
     private final DailyFoodItemRepository itemRepo;
     private final MealPhotoRepository photoRepo;
     private final FileStorageService storageService;
+    private final UserRepository userRepo;
+    private final AiDietaryService aiService;
 
     @Value("${storage.meal-photo-dir}")
     private String mealPhotoDir;
@@ -193,7 +198,11 @@ public class DietaryService {
             return si.getSodium() * ratio;
         }).sum();
 
-        return new DailySummary(date, totals[0], totals[1], totals[2], totals[3], totalSodium, meals);
+        double totalWater = items.stream()
+                .mapToDouble(i -> i.getWater() != null ? i.getWater() : 0.0)
+                .sum();
+
+        return new DailySummary(date, totals[0], totals[1], totals[2], totals[3], totalSodium, totalWater, meals);
     }
 
     private double[] calculateMacros(List<DailyFoodItem> items) {
@@ -241,5 +250,93 @@ public class DietaryService {
 
     public List<MealPhoto> getMealPhotos(Long userId, String date) {
         return photoRepo.findByUserIdAndDateOrderByGmtCreateAsc(userId, date);
+    }
+
+    public NutritionAnalysis getNutritionAnalysis(Long userId, String date) {
+        User user = userRepo.findById(userId)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        DailySummary summary = getDailySummary(userId, date);
+
+        // Simple BMR (Mifflin-St Jeor)
+        double targetCal = calculateTargetCalories(user);
+        double targetProt = user.getProteinGoal() != null ? user.getProteinGoal() : (targetCal * 0.25 / 4);
+        double targetFat = user.getFatGoal() != null ? user.getFatGoal() : (targetCal * 0.25 / 9);
+        double targetCarbs = user.getChoGoal() != null ? user.getChoGoal() : (targetCal * 0.5 / 4);
+
+        NutritionAnalysis analysis = NutritionAnalysis.builder()
+                .date(date)
+                .currentCalories(summary.getTotalCalories())
+                .currentProtein(summary.getTotalProtein())
+                .currentFat(summary.getTotalFat())
+                .currentCarbs(summary.getTotalCarbs())
+                .currentWater(summary.getTotalWater())
+                .targetCalories(round(targetCal))
+                .targetProtein(round(targetProt))
+                .targetFat(round(targetFat))
+                .targetCarbs(round(targetCarbs))
+                .targetWater(user.getWaterGoal() != null ? user.getWaterGoal() : 2000.0)
+                .recommendations(new ArrayList<>())
+                .build();
+
+        analysis.setCalorieGap(round(analysis.getTargetCalories() - analysis.getCurrentCalories()));
+        analysis.setProteinGap(round(analysis.getTargetProtein() - analysis.getCurrentProtein()));
+        analysis.setFatGap(round(analysis.getTargetFat() - analysis.getCurrentFat()));
+        analysis.setCarbsGap(round(analysis.getTargetCarbs() - analysis.getCurrentCarbs()));
+        analysis.setWaterGap(round(analysis.getTargetWater() - analysis.getCurrentWater()));
+
+        // 如果 AI 服务可用，生成更人性化的建议
+        String aiAdvice = aiService.generateSuggestions(analysis);
+        analysis.getRecommendations().add(aiAdvice);
+
+        generateRecommendations(analysis);
+
+        return analysis;
+    }
+
+    private double calculateTargetCalories(User user) {
+        if (user.getRdaGoal() != null && user.getRdaGoal() > 0) return user.getRdaGoal();
+        
+        // Default BMR
+        double weight = user.getCurrentWeight() != null ? user.getCurrentWeight() : 70.0;
+        double height = user.getHeight() != null ? user.getHeight() : 170.0;
+        int age = calculateAge(user.getDateOfBirth());
+        
+        double bmr;
+        if ("Female".equalsIgnoreCase(user.getGender())) {
+            bmr = 10 * weight + 6.25 * height - 5 * age - 161;
+        } else {
+            bmr = 10 * weight + 6.25 * height - 5 * age + 5;
+        }
+        return bmr * 1.375; // Lightly active
+    }
+
+    private int calculateAge(String dob) {
+        if (dob == null || dob.isEmpty()) return 25;
+        try {
+            LocalDate birthDate = LocalDate.parse(dob);
+            return LocalDate.now().getYear() - birthDate.getYear();
+        } catch (Exception e) {
+            return 25;
+        }
+    }
+
+    private void generateRecommendations(NutritionAnalysis analysis) {
+        if (analysis.getProteinGap() > 10) {
+            analysis.getRecommendations().add("蛋白质摄入不足，建议补充：鸡胸肉、牛肉、鸡蛋或蛋白粉。");
+        }
+        if (analysis.getFatGap() > 10) {
+            analysis.getRecommendations().add("建议增加优质脂肪摄入：牛油果、坚果或橄榄油。");
+        }
+        if (analysis.getCarbsGap() > 30) {
+            analysis.getRecommendations().add("碳水化合物缺口较大，可适当增加：燕麦、糙米或全麦面包。");
+        }
+        if (analysis.getCalorieGap() > 200) {
+            analysis.setStatusSummary("能量摄入不足");
+        } else if (analysis.getCalorieGap() < -200) {
+            analysis.setStatusSummary("能量摄入过重");
+        } else {
+            analysis.setStatusSummary("营养均衡");
+        }
     }
 }

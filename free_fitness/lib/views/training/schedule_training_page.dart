@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_screenutil/flutter_screenutil.dart';
 import 'package:table_calendar/table_calendar.dart';
+import 'package:intl/intl.dart';
 import '../../core/constants/constants.dart';
 import '../../core/utils/tools.dart';
 import '../../models/training_state.dart';
 import '../../services/notification_service.dart';
 import '../../services/training_schedule_service.dart';
 import '../../core/storage/db_training_helper.dart';
+import 'workouts/action_follow_practice.dart';
 
 class ScheduleTrainingPage extends StatefulWidget {
   const ScheduleTrainingPage({super.key});
@@ -139,7 +141,15 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             subtitle: Text(
-              '时间: ${schedule.startTime.substring(0, 5)} - ${schedule.endTime.substring(0, 5)}\n提醒: 提前 ${schedule.remindBeforeMinutes} 分钟',
+              '预计: ${schedule.startTime.substring(0, 5)} | 时长: ${() {
+                try {
+                  final start = DateFormat('HH:mm:ss').parse(schedule.startTime);
+                  final end = DateFormat('HH:mm:ss').parse(schedule.endTime);
+                  return end.difference(start).inMinutes;
+                } catch (e) {
+                  return 0;
+                }
+              }()} 分钟 | ${schedule.totalSets ?? 1} 组',
             ),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
@@ -167,8 +177,10 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
   void _showAddScheduleDialog() async {
     String? selectedActivity = _activityOptions[0]['name'];
     TimeOfDay startTime = const TimeOfDay(hour: 10, minute: 0);
-    TimeOfDay endTime = const TimeOfDay(hour: 11, minute: 0);
+    int totalDurationMin = 60;
     int remindMin = 15;
+    int sets = 1;
+    int restSec = 30;
 
     await showDialog(
       context: context,
@@ -227,18 +239,24 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
                           setDialogState(() => startTime = picked);
                       },
                     ),
-                    ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      title: const Text('结束时间'),
-                      trailing: Text(endTime.format(context)),
-                      onTap: () async {
-                        final picked = await showTimePicker(
-                          context: context,
-                          initialTime: endTime,
-                        );
-                        if (picked != null)
-                          setDialogState(() => endTime = picked);
-                      },
+                    const Divider(),
+                    const Text('训练总时间 (分钟)'),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Slider(
+                            value: totalDurationMin.toDouble(),
+                            min: 5,
+                            max: 180,
+                            divisions: 35,
+                            label: '$totalDurationMin',
+                            onChanged: (val) => setDialogState(
+                              () => totalDurationMin = val.toInt(),
+                            ),
+                          ),
+                        ),
+                        Text('$totalDurationMin m'),
+                      ],
                     ),
                     const Divider(),
                     const Text('提醒时间(分钟)'),
@@ -256,6 +274,42 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
                           ),
                         ),
                         Text('$remindMin'),
+                      ],
+                    ),
+                    const Divider(),
+                    const Text('组数 & 休息'),
+                    Row(
+                      children: [
+                        const Text('组数:'),
+                        Expanded(
+                          child: Slider(
+                            value: sets.toDouble(),
+                            min: 1,
+                            max: 20,
+                            divisions: 19,
+                            label: '$sets',
+                            onChanged: (val) =>
+                                setDialogState(() => sets = val.toInt()),
+                          ),
+                        ),
+                        Text('$sets'),
+                      ],
+                    ),
+                    Row(
+                      children: [
+                        const Text('休息:'),
+                        Expanded(
+                          child: Slider(
+                            value: restSec.toDouble(),
+                            min: 0,
+                            max: 300,
+                            divisions: 30,
+                            label: '${restSec}s',
+                            onChanged: (val) =>
+                                setDialogState(() => restSec = val.toInt()),
+                          ),
+                        ),
+                        Text('${restSec}s'),
                       ],
                     ),
                   ],
@@ -285,7 +339,14 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
       },
     ).then((confirmed) {
       if (confirmed == true && selectedActivity != null) {
-        _saveSchedule(selectedActivity!, startTime, endTime, remindMin);
+        _saveSchedule(
+          selectedActivity!,
+          startTime,
+          totalDurationMin,
+          remindMin,
+          sets,
+          restSec,
+        );
       }
     });
   }
@@ -293,10 +354,17 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
   Future<void> _saveSchedule(
     String activityName,
     TimeOfDay start,
-    TimeOfDay end,
+    int durationMin,
     int remindMin,
+    int sets,
+    int restSec,
   ) async {
     final String dateStr = formatDateToString(_selectedDay ?? _focusedDay);
+
+    // 计算结束时间
+    final startDateTime = DateTime(2000, 1, 1, start.hour, start.minute);
+    final endDateTime = startDateTime.add(Duration(minutes: durationMin));
+    final end = TimeOfDay.fromDateTime(endDateTime);
 
     final schedule = TrainingSchedule(
       userId: CacheUser.userId,
@@ -309,6 +377,9 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
       endTime:
           '${end.hour.toString().padLeft(2, '0')}:${end.minute.toString().padLeft(2, '0')}:00',
       remindBeforeMinutes: remindMin,
+      totalSets: sets,
+      restDuration: restSec,
+      sportType: activityName,
     );
 
     final saved = await TrainingScheduleService.createSchedule(schedule);
@@ -377,6 +448,113 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
   }
 
   Future<void> _completeSchedule(TrainingSchedule schedule) async {
+    // 检查如果是 ACTIVITY 类型，进入计时器模式
+    if (schedule.trainingType == 'ACTIVITY') {
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: Text('开始 [${schedule.trainingName}]'),
+          content: Text(
+            '将开始实时计时追踪。设定: ${schedule.totalSets ?? 1} 组，组间休息 ${schedule.restDuration ?? 0}s。',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('以后再说'),
+            ),
+            TextButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('立即开始'),
+            ),
+          ],
+        ),
+      );
+
+      if (confirmed == true) {
+        // 构建 ActionDetail 列表
+        // 尝试从本地或云端获取 Exercise 信息，如果没有，构建一个临时的
+        CusDataResult exercises = await DBTrainingHelper()
+            .queryExerciseByKeyword(
+              keyword: schedule.trainingName!,
+              pageSize: 1,
+              page: 1,
+            );
+
+        Exercise? exercise;
+        if (exercises.data.isNotEmpty) {
+          exercise = exercises.data.first as Exercise;
+        } else {
+          // 兜底：构建一个简单的 Exercise 对象
+          exercise = Exercise(
+            exerciseCode: 'TEMP_CODE',
+            exerciseName: schedule.trainingName!,
+            countingMode: countingOptions.first.value, // 计时模式
+            standardDuration: 1,
+            category: '健身',
+          );
+        }
+
+        // 计算每组时长
+        int setsCount = schedule.totalSets ?? 1;
+        int durationPerSet = 60;
+        try {
+          final start = DateFormat('HH:mm:ss').parse(schedule.startTime);
+          final end = DateFormat('HH:mm:ss').parse(schedule.endTime);
+          durationPerSet = (end.difference(start).inSeconds) ~/ setsCount;
+        } catch (e) {
+          debugPrint('计算每组时长失败: $e');
+        }
+
+        // 创建 ActionDetail 列表（重复 sets 次）
+        List<ActionDetail> actionList = [];
+        for (int i = 0; i < setsCount; i++) {
+          actionList.add(
+            ActionDetail(
+              exercise: exercise,
+              action: TrainingAction(
+                groupId: 0,
+                exerciseId: exercise.exerciseId ?? 0,
+                duration: durationPerSet,
+              ),
+            ),
+          );
+        }
+
+        // 导航到计时器页面
+        if (!context.mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => ActionFollowPracticeWithTTS(
+              actionList: actionList,
+              group: TrainingGroup(
+                groupName: schedule.trainingName!,
+                groupCategory: 'Scheduled Activity',
+                groupLevel: 'Normal',
+              ),
+              // 这里传训练内容的名称作为 planName
+              plan: TrainingPlan(
+                planCode: 'SCHED',
+                planName: schedule.trainingName!,
+                planCategory: 'General',
+                planLevel: 'Normal',
+                planPeriod: 1,
+                sportType: schedule.sportType,
+              ),
+              // dayNumber 传 null，表示这是一个单次排程，不是周期计划中的某一天
+              dayNumber: null,
+            ),
+          ),
+        ).then((_) {
+          // 结束后刷新列表
+          _loadSchedules();
+        });
+        return;
+      }
+      return;
+    }
+
+    // 原有的 PLAN/GROUP 完成逻辑
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -419,8 +597,16 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
         );
 
         // 3. 生成训练日志
+        // 确保 scheduledDate 只包含日期部分（YYYY-MM-DD 格式）
+        String formattedDate = schedule.scheduledDate;
+        if (schedule.scheduledDate.contains(' ')) {
+          formattedDate = schedule.scheduledDate.split(' ')[0];
+        } else if (schedule.scheduledDate.length > 10) {
+          formattedDate = schedule.scheduledDate.substring(0, 10);
+        }
+
         final log = TrainedDetailLog(
-          trainedDate: schedule.scheduledDate,
+          trainedDate: formattedDate,
           userId: CacheUser.userId,
           // 根据 type 填充
           planName: schedule.trainingType == 'PLAN'
@@ -429,8 +615,8 @@ class _ScheduleTrainingPageState extends State<ScheduleTrainingPage> {
           groupName: schedule.trainingType == 'GROUP'
               ? schedule.trainingName
               : schedule.trainingName,
-          trainedStartTime: '${schedule.scheduledDate} ${schedule.startTime}',
-          trainedEndTime: '${schedule.scheduledDate} ${schedule.endTime}',
+          trainedStartTime: '$formattedDate ${schedule.startTime}',
+          trainedEndTime: '$formattedDate ${schedule.endTime}',
           trainedDuration: duration,
           totolPausedTime: 0,
           totalRestTime: 0,

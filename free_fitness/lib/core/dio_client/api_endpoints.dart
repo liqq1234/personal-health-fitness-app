@@ -22,4 +22,5 @@ class ApiEndpoints {
   static const String dietSync = "$apiBaseUrl/dietary";
   static const String healthSync = "$apiBaseUrl/health";
   static const String diarySync = "$apiBaseUrl/diary/entries";
+  static const String socialSync = "$apiBaseUrl/social";
 }

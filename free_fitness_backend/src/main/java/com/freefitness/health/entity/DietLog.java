@@ -37,6 +37,15 @@ public class DietLog {
     @Column(name = "protein", nullable = false)
     private Double protein;
 
+    @Column(name = "fat")
+    private Double fat;
+
+    @Column(name = "carbs")
+    private Double carbs;
+
+    @Column(name = "water")
+    private Double water;
+
     @Column(name = "gmt_create", nullable = false, length = 30)
     private String gmtCreate;
 }

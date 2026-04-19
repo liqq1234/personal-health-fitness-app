@@ -14,12 +14,13 @@ import '../../core/storage/db_training_helper.dart';
 import '../../core/storage/db_dietary_helper.dart';
 import '../../models/training_state.dart';
 import '../../models/dietary_state.dart';
+import '../../models/user_state.dart';
 import '../../models/cus_app_localizations.dart';
 import '../../services/training_schedule_service.dart';
-import '../../services/dietary_analysis_service.dart';
 import '../../core/constants/constants.dart';
 import 'health_weekly_chart.dart';
 import 'health_assessment_card.dart';
+import '../me/weight_change_record/index.dart';
 import 'index.dart'; // 为了跳转到训练页
 
 class HealthDashboard extends StatefulWidget {
@@ -39,12 +40,9 @@ class HealthDashboardState extends State<HealthDashboard> {
   int _trainingMinutes = 0;
   double _exerciseCalories = 0;
   List<TrainingSchedule> _todaySchedules = [];
-  String _dietAdvice = '';
-  bool _isAIProcessing = false;
-  static String? _cachedAIAdvice;
-  static String? _cachedAIDate;
-  double _userWeight = 70.0;
-  int _rdaGoal = 2000;
+  bool _hasTrainingLogs = false;
+  double _rdaGoal = 2000;
+  User? _currentUser;
   StreamSubscription<int>? _stepSubscription;
 
   @override
@@ -77,9 +75,9 @@ class HealthDashboardState extends State<HealthDashboard> {
 
     // 获取用户信息以获取 RDA 和体重
     var user = await DBUserHelper().queryUser(userId: CacheUser.userId);
+    _currentUser = user;
     if (user != null) {
-      _userWeight = user.currentWeight ?? 70.0;
-      _rdaGoal = user.rdaGoal ?? 2000;
+      _rdaGoal = user.rdaGoal?.toDouble() ?? 2000;
     }
 
     // 获取今日排程
@@ -138,70 +136,8 @@ class HealthDashboardState extends State<HealthDashboard> {
           0.0,
           (sum, item) => sum + (item.consumption ?? 0),
         );
-
-        // 基于详细和简易饮食数据生成饮食建议
-        final analysis = DietaryAnalysisService.analyzeWeeklyIntake(
-          recentDietDetails.cast<DailyFoodItemWithFoodServing>(),
-          _userWeight,
-          _rdaGoal,
-          simpleDietLogs: recentDietLogs,
-        );
-        _dietAdvice = DietaryAnalysisService.getAnalysisAdvice(
-          analysis,
-          CusAL.of(context),
-          rDA: _rdaGoal.toDouble(),
-        );
-
-        // 每日更新三次：早(5-11)、中(11-17)、晚(17-次日5)
-        final now = DateTime.now();
-        int slot = 0;
-        if (now.hour >= 5 && now.hour < 11) {
-          slot = 0;
-        } else if (now.hour >= 11 && now.hour < 17) {
-          slot = 1;
-        } else {
-          slot = 2;
-        }
-
-        String todaySlot = "${DateFormat('yyyy-MM-dd').format(now)}_$slot";
-        if (_cachedAIDate != todaySlot || _cachedAIAdvice == null) {
-          _fetchAIDietaryAdvice(
-            analysis,
-            recentDietLogs,
-            _rdaGoal.toDouble(),
-            todaySlot,
-          );
-        } else {
-          _dietAdvice = "$_dietAdvice\n\n$_cachedAIAdvice";
-        }
+        _hasTrainingLogs = trainingLogs.isNotEmpty;
       });
-    }
-  }
-
-  Future<void> _fetchAIDietaryAdvice(
-    Map<String, dynamic> analysis,
-    List<DietLog> weeklyLogs,
-    double rda,
-    String slotKey,
-  ) async {
-    if (mounted) setState(() => _isAIProcessing = true);
-
-    final aiAdvice = await DietaryAnalysisService.getAIDietaryAnalysis(
-      analysis,
-      weeklyLogs,
-      rda,
-    );
-
-    if (mounted && aiAdvice.isNotEmpty) {
-      setState(() {
-        _cachedAIAdvice = aiAdvice;
-        _cachedAIDate = slotKey;
-        // 将AI建议追加到基础建议之后
-        _dietAdvice = "${_dietAdvice.split('【AI').first.trim()}\n\n$aiAdvice";
-        _isAIProcessing = false;
-      });
-    } else if (mounted) {
-      setState(() => _isAIProcessing = false);
     }
   }
 
@@ -220,13 +156,14 @@ class HealthDashboardState extends State<HealthDashboard> {
             children: [
               _buildMainCard(),
               SizedBox(height: 12.sp),
+              _buildWeightTrendModule(),
+              SizedBox(height: 12.sp),
               const HealthWeeklyChart(),
               HealthAssessmentCard(
                 steps: _steps,
                 sleepHours: _sleepHours,
                 todaySchedules: _todaySchedules,
-                dietAdvice: _dietAdvice,
-                isAnalyzing: _isAIProcessing,
+                hasTrainingLogs: _hasTrainingLogs,
               ),
               SizedBox(height: 8.sp),
             ],
@@ -429,6 +366,114 @@ class HealthDashboardState extends State<HealthDashboard> {
         ),
       ],
     );
+  }
+
+  Widget _buildWeightTrendModule() {
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final user = _currentUser;
+    if (user == null) return const SizedBox();
+
+    final weight = user.currentWeight ?? 0;
+    final height = (user.height ?? 0) / 100;
+    final bmi = (height == 0) ? 0.0 : (weight / (height * height));
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (c) => WeightChangeRecord(userInfo: user)),
+      ).then((_) => _initHealth()),
+      child: Card(
+        margin: EdgeInsets.zero,
+        elevation: 0,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16.sp),
+          side: BorderSide(color: colorScheme.outlineVariant, width: 0.5),
+        ),
+        child: Container(
+          padding: EdgeInsets.all(16.sp),
+          decoration: BoxDecoration(
+            color: colorScheme.secondaryContainer.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(16.sp),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: EdgeInsets.all(12.sp),
+                decoration: BoxDecoration(
+                  color: colorScheme.secondaryContainer,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.monitor_weight_outlined,
+                  color: colorScheme.onSecondaryContainer,
+                  size: 24.sp,
+                ),
+              ),
+              SizedBox(width: 16.sp),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "体重趋势 / Weight Trend",
+                      style: TextStyle(
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.bold,
+                        color: colorScheme.secondary,
+                      ),
+                    ),
+                    SizedBox(height: 4.sp),
+                    Row(
+                      children: [
+                        Text(
+                          "${weight.toStringAsFixed(1)} kg",
+                          style: TextStyle(
+                            fontSize: 20.sp,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        SizedBox(width: 12.sp),
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                            horizontal: 8.sp,
+                            vertical: 2.sp,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _getBmiColor(bmi).withOpacity(0.2),
+                            borderRadius: BorderRadius.circular(12.sp),
+                          ),
+                          child: Text(
+                            "BMI: ${bmi.toStringAsFixed(1)}",
+                            style: TextStyle(
+                              fontSize: 12.sp,
+                              fontWeight: FontWeight.bold,
+                              color: _getBmiColor(bmi),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Icon(
+                Icons.chevron_right,
+                color: colorScheme.onSurfaceVariant,
+                size: 20.sp,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Color _getBmiColor(double bmi) {
+    if (bmi < 18.5) return Colors.blue;
+    if (bmi < 24) return Colors.green;
+    if (bmi < 28) return Colors.orange;
+    return Colors.red;
   }
 
   Widget _buildMetric(IconData icon, String value, String unit) {

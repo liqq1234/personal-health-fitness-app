@@ -12,6 +12,7 @@ import '../../../layout/themes/cus_font_size.dart';
 import '../../../models/cus_app_localizations.dart';
 import '../../../models/training_state.dart';
 import 'export/report_pdf_viewer.dart';
+import '../exercise_insights.dart';
 
 class TrainingReports extends StatefulWidget {
   const TrainingReports({super.key});
@@ -71,8 +72,12 @@ class _TrainingReportsState extends State<TrainingReports> {
       isLoading = true;
     });
 
+    var [start, end] = getStartEndDateString(90);
+
     var list = await _trainingHelper.queryTrainedDetailLog(
       userId: CacheUser.userId,
+      startDate: start,
+      endDate: end,
       gmtCreateSort: "DESC",
     );
 
@@ -151,7 +156,7 @@ class _TrainingReportsState extends State<TrainingReports> {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 2,
+      length: 3,
       initialIndex: initialIndex,
       child: Scaffold(
         appBar: AppBar(
@@ -159,6 +164,7 @@ class _TrainingReportsState extends State<TrainingReports> {
             tabs: [
               Tab(icon: Icon(Icons.calendar_month)),
               Tab(icon: Icon(Icons.history)),
+              Tab(icon: Icon(Icons.psychology)),
             ],
           ),
           title: Text(CusAL.of(context).trainingReports),
@@ -238,6 +244,7 @@ class _TrainingReportsState extends State<TrainingReports> {
                 children: [
                   SingleChildScrollView(child: buildHistoryView()),
                   SingleChildScrollView(child: buildRecentView()),
+                  const ExerciseInsightsPage(showAppBar: false),
                 ],
               ),
       ),
@@ -250,10 +257,15 @@ class _TrainingReportsState extends State<TrainingReports> {
   FutureBuilder<List<TrainedDetailLog>> buildReportsView() {
     // 统计的是所有的运动次数和总的运动时间
     return FutureBuilder(
-      future: _trainingHelper.queryTrainedDetailLog(
-        userId: CacheUser.userId,
-        gmtCreateSort: "DESC",
-      ),
+      future: () async {
+        var [start, end] = getStartEndDateString(365); // 统计默认看一年
+        return await _trainingHelper.queryTrainedDetailLog(
+          userId: CacheUser.userId,
+          startDate: start,
+          endDate: end,
+          gmtCreateSort: "DESC",
+        );
+      }(),
       builder: (BuildContext context, AsyncSnapshot<List<TrainedDetailLog>> snapshot) {
         if (snapshot.hasData) {
           List<TrainedDetailLog> data = snapshot.data!;
@@ -625,7 +637,10 @@ class _TrainingReportsState extends State<TrainingReports> {
 
             for (var log in value) {
               totalDuration += log.trainedDuration;
-              totalCalories += (log.consumption ?? 0);
+              // 如果没有消耗量，则根据时长估算 (每分钟 6.5 kcal)
+              totalCalories += (log.consumption == null || log.consumption == 0)
+                  ? (log.trainedDuration / 60 * 6.5).toInt()
+                  : log.consumption!;
               totalPause += log.totolPausedTime;
               totalRest += log.totalRestTime;
             }
@@ -635,59 +650,11 @@ class _TrainingReportsState extends State<TrainingReports> {
                 // 汇总信息展示
                 Padding(
                   padding: EdgeInsets.all(10.sp),
-                  child: Container(
-                    padding: EdgeInsets.all(12.sp),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).primaryColor.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10.sp),
-                      border: Border.all(
-                        color: Theme.of(context).primaryColor.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildSummaryItem(
-                              context,
-                              "总时长",
-                              formatSeconds(totalDuration.toDouble()),
-                              Icons.timer_outlined,
-                            ),
-                            _buildSummaryItem(
-                              context,
-                              "总消耗",
-                              "$totalCalories kcal",
-                              Icons.local_fire_department_outlined,
-                            ),
-                          ],
-                        ),
-                        Divider(
-                          height: 20.sp,
-                          color: Theme.of(
-                            context,
-                          ).primaryColor.withOpacity(0.2),
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceAround,
-                          children: [
-                            _buildSummaryItem(
-                              context,
-                              "暂停时长",
-                              formatSeconds(totalPause.toDouble()),
-                              Icons.pause_circle_outline,
-                            ),
-                            _buildSummaryItem(
-                              context,
-                              "休息时长",
-                              formatSeconds(totalRest.toDouble()),
-                              Icons.bedtime_outlined,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
+                  child: _buildSummaryCardWidget(
+                    totalDuration,
+                    totalCalories,
+                    totalPause,
+                    totalRest,
                   ),
                 ),
                 ListView.builder(
@@ -814,6 +781,8 @@ class _TrainingReportsState extends State<TrainingReports> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                  // 添加汇总信息展示卡片
+                  _buildRecentSummaryCard(data),
                   ...rst,
                 ],
               );
@@ -855,6 +824,10 @@ class _TrainingReportsState extends State<TrainingReports> {
             CusAL.of(context).trainedCalendarLabels('4'),
             formatSeconds(log.totalRestTime.toDouble()),
           ),
+          _buildTileRow(
+            "消耗能量",
+            "${(log.consumption == null || log.consumption == 0) ? (log.trainedDuration / 60 * 6.5).toInt() : log.consumption} kcal",
+          ),
         ],
       ),
     );
@@ -884,13 +857,22 @@ class _TrainingReportsState extends State<TrainingReports> {
                     color: Colors.green,
                   ),
                 ),
-                TextSpan(
-                  text: CusAL.of(context).dayNumber(log.dayNumber ?? 0),
-                  style: TextStyle(
-                    color: Theme.of(context).primaryColor,
-                    fontWeight: FontWeight.bold,
+                if (log.dayNumber != null)
+                  TextSpan(
+                    text: CusAL.of(context).dayNumber(log.dayNumber ?? 0),
+                    style: TextStyle(
+                      color: Theme.of(context).primaryColor,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  )
+                else
+                  TextSpan(
+                    text: "  ${log.trainedDate.split(' ')[0]}",
+                    style: TextStyle(
+                      color: Colors.grey,
+                      fontSize: CusFontSizes.pageAppendix,
+                    ),
                   ),
-                ),
               ],
             ),
           )
@@ -1013,6 +995,94 @@ class _TrainingReportsState extends State<TrainingReports> {
                   fontWeight: FontWeight.bold,
                   color: Theme.of(context).primaryColor,
                 ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 新增：构建最近30天汇总卡片
+  Widget _buildRecentSummaryCard(List<TrainedDetailLog> logs) {
+    int totalDuration = 0;
+    int totalCalories = 0;
+    int totalPause = 0;
+    int totalRest = 0;
+
+    for (var log in logs) {
+      totalDuration += log.trainedDuration;
+      totalCalories += (log.consumption == null || log.consumption == 0)
+          ? (log.trainedDuration / 60 * 6.5).toInt()
+          : log.consumption!;
+      totalPause += log.totolPausedTime;
+      totalRest += log.totalRestTime;
+    }
+
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: 10.sp, vertical: 5.sp),
+      child: _buildSummaryCardWidget(
+        totalDuration,
+        totalCalories,
+        totalPause,
+        totalRest,
+      ),
+    );
+  }
+
+  // 新增：通用的汇总信息组件
+  Widget _buildSummaryCardWidget(
+    int duration,
+    int calories,
+    int pause,
+    int rest,
+  ) {
+    return Container(
+      padding: EdgeInsets.all(12.sp),
+      decoration: BoxDecoration(
+        color: Theme.of(context).primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10.sp),
+        border: Border.all(
+          color: Theme.of(context).primaryColor.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSummaryItem(
+                context,
+                "总时长",
+                formatSeconds(duration.toDouble()),
+                Icons.timer_outlined,
+              ),
+              _buildSummaryItem(
+                context,
+                "总消耗",
+                "$calories kcal",
+                Icons.local_fire_department_outlined,
+              ),
+            ],
+          ),
+          Divider(
+            height: 20.sp,
+            color: Theme.of(context).primaryColor.withOpacity(0.2),
+          ),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
+            children: [
+              _buildSummaryItem(
+                context,
+                "暂停时长",
+                formatSeconds(pause.toDouble()),
+                Icons.pause_circle_outline,
+              ),
+              _buildSummaryItem(
+                context,
+                "休息时长",
+                formatSeconds(rest.toDouble()),
+                Icons.bedtime_outlined,
               ),
             ],
           ),

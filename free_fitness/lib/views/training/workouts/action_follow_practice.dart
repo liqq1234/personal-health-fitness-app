@@ -12,7 +12,6 @@ import 'package:wakelock_plus/wakelock_plus.dart';
 import '../../../core/constants/constants.dart';
 import '../../../core/storage/db_training_helper.dart';
 import '../../../core/storage/db_user_helper.dart';
-import '../../../core/utils/image_preview_helper.dart';
 import '../../../core/utils/tool_widgets.dart';
 import '../../../core/utils/tools.dart';
 import '../../../layout/themes/cus_font_size.dart';
@@ -95,6 +94,11 @@ class _ActionFollowPracticeWithTTSState
   int totalPausedTimes = 0;
   // 休息的总时间(单位秒)
   int totalRestTimes = 0;
+  // 弃掉的总时间(单位秒，针对用户点击了“返回”删除当前阶段数据的情况)
+  int totalDiscardedTime = 0;
+
+  // 记录当前阶段开始的时间，用于计算点击返回时要扣除的时间
+  DateTime stageStartedMoment = DateTime.now();
 
   ///
   ///  实际运动耗时= 整体耗时 - 休息时间 - 暂停时间
@@ -155,6 +159,7 @@ class _ActionFollowPracticeWithTTSState
 
       // 进入此跟练页面自动开始
       startedMoment = DateTime.now();
+      stageStartedMoment = DateTime.now();
     });
 
     initTts();
@@ -245,12 +250,6 @@ class _ActionFollowPracticeWithTTSState
       _currentIndex = -1;
     });
   }
-
-  // 从基础动作获取其图片列表(要排除images是个空字符串)
-  List<String> _getExerciseImageList(Exercise exercise) =>
-      (exercise.images?.trim().isNotEmpty == true)
-      ? exercise.images!.split(",")
-      : [];
 
   ///
   /// TTS 相关的操作===============
@@ -475,7 +474,13 @@ class _ActionFollowPracticeWithTTSState
         });
       },
       child: Scaffold(
-        appBar: AppBar(title: Text(CusAL.of(context).workoutFollowLabel('0'))),
+        appBar: AppBar(
+          title: Text(
+            plan != null
+                ? "${plan!.planName} - ${dayNumber != null ? 'Day $dayNumber' : '练中'}"
+                : CusAL.of(context).workoutFollowLabel('0'),
+          ),
+        ),
         body: Padding(
           padding: EdgeInsets.all(5.sp),
           child: Column(
@@ -504,9 +509,17 @@ class _ActionFollowPracticeWithTTSState
     return [
       Expanded(
         // 这里的盒子，只是单纯区分休息时显示下一个要小点，跟练时图片大点
-        flex: 5,
-        child: buildImageViewCarouselSlider(
-          _getExerciseImageList(actions[0].exercise),
+        flex: 3,
+        child: Center(
+          child: Icon(
+            actions[0].exercise.category == '跑步'
+                ? Icons.directions_run
+                : actions[0].exercise.category == '骑行'
+                ? Icons.directions_bike
+                : Icons.fitness_center,
+            size: 100.sp,
+            color: Theme.of(context).primaryColor.withOpacity(0.5),
+          ),
         ),
       ),
       Expanded(
@@ -597,6 +610,7 @@ class _ActionFollowPracticeWithTTSState
                   setState(() {
                     _currentIndex = 0;
                     isRestTurn = false;
+                    stageStartedMoment = DateTime.now();
                   });
                   // 跳过预备时也停止语音
                   _stop();
@@ -619,8 +633,16 @@ class _ActionFollowPracticeWithTTSState
       Expanded(
         // 这里的盒子，只是单纯区分休息时显示下一个要小点，跟练时图片大点
         flex: 4,
-        child: buildImageViewCarouselSlider(
-          _getExerciseImageList(actions[_currentIndex].exercise),
+        child: Center(
+          child: Icon(
+            actions[_currentIndex].exercise.category == '跑步'
+                ? Icons.directions_run
+                : actions[_currentIndex].exercise.category == '骑行'
+                ? Icons.directions_bike
+                : Icons.fitness_center,
+            size: 150.sp,
+            color: Theme.of(context).primaryColor,
+          ),
         ),
       ),
       // 在跟练页面显示当前训练占全部的进度条
@@ -648,13 +670,27 @@ class _ActionFollowPracticeWithTTSState
                   text: TextSpan(
                     children: [
                       TextSpan(
-                        text: actions[_currentIndex].exercise.exerciseName,
+                        text:
+                            (plan?.sportType != null &&
+                                plan!.sportType!.isNotEmpty)
+                            ? "${plan!.sportType}中"
+                            : actions[_currentIndex].exercise.exerciseName,
                         style: TextStyle(
                           color: Theme.of(context).primaryColor,
                           fontSize: CusFontSizes.flagMedium,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
+                      if (plan?.sportType != null &&
+                          plan!.sportType!.isNotEmpty)
+                        TextSpan(
+                          text:
+                              "\n(${actions[_currentIndex].exercise.exerciseName})",
+                          style: TextStyle(
+                            color: Theme.of(context).disabledColor,
+                            fontSize: CusFontSizes.flagSmall,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -882,6 +918,26 @@ class _ActionFollowPracticeWithTTSState
                       ),
                     ),
             ),
+            const SizedBox(width: 15),
+            IconButton.filledTonal(
+              onPressed: () {
+                _actionController.restart(
+                  duration: _getCurrentActionDuration(),
+                );
+              },
+              icon: const Icon(Icons.restart_alt),
+              tooltip: '重新计时',
+            ),
+            const SizedBox(width: 15),
+            IconButton.filledTonal(
+              onPressed: () {
+                _showFinishedDialog();
+                _actionController.pause();
+              },
+              icon: const Icon(Icons.check_circle_outline),
+              tooltip: '立即结束',
+              color: Colors.redAccent,
+            ),
           ],
         ),
       ),
@@ -904,6 +960,13 @@ class _ActionFollowPracticeWithTTSState
               onPressed: _currentIndex <= 0
                   ? () {}
                   : () {
+                      // 点击“返回”，删除当前阶段数据并回到上一个阶段
+                      // 1. 计算当前阶段已经耗费的时间，累加到 discardedTime 中
+                      var currentStageSpent = DateTime.now()
+                          .difference(stageStartedMoment)
+                          .inSeconds;
+                      totalDiscardedTime += currentStageSpent;
+
                       // 点击上一个，先停止之前的语言(进入跟练倒计时时会自动播放开始的语音)
                       _stop();
 
@@ -911,6 +974,7 @@ class _ActionFollowPracticeWithTTSState
                       setState(() {
                         _currentIndex--;
                         isRestTurn = false;
+                        stageStartedMoment = DateTime.now();
 
                         // 如果之前是暂停，点击上下一个时会自动开始，也就是暂停时间结束，此时要统计暂停的时间
                         if (isActionPause) {
@@ -957,6 +1021,9 @@ class _ActionFollowPracticeWithTTSState
                   : () {
                       // 点击跳过就直接到下一个休息去
                       setState(() {
+                        // 记录已经花费的时间
+                        // 下一个阶段从现在开始
+                        stageStartedMoment = DateTime.now();
                         _currentIndex++;
                         isRestTurn = true;
 
@@ -1000,7 +1067,7 @@ class _ActionFollowPracticeWithTTSState
             // 出现休息倒计时一定是在跟练中间的(最后一个跟练结束就跳弹窗了),所以不用判断按钮
             Expanded(
               flex: 1,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: () {
                   // 如果点击了+10s休息时间或者预设的休息时间，要做倒计时在完成时才累加。
                   //    注意：在休息已经进行了一段时间后再+10s，因为有restart，所以还要在+10s前累加已经休息的时间
@@ -1026,12 +1093,16 @@ class _ActionFollowPracticeWithTTSState
                   //  其他不用表，只是修改休息倒计时的显示数字
                   _restController.restart(duration: _cusRestTime);
                 },
-                style: ButtonStyle(
-                  backgroundColor: WidgetStateProperty.all<Color>(
-                    Theme.of(context).primaryColor,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.sp),
                   ),
                 ),
-                child: const Text('+10s'),
+                icon: const Icon(Icons.add_alarm, size: 18),
+                label: const Text('+10s', style: TextStyle(fontSize: 12)),
               ),
             ),
             Expanded(
@@ -1066,6 +1137,7 @@ class _ActionFollowPracticeWithTTSState
                 },
                 // 当进入休息倒计时时，开始语音提示下一个动作.
                 onStart: () {
+                  if (!mounted) return;
                   // 只有正常进入休息倒计时才发tts，点击了+10s后的restart不发语音
                   if (!isClickPlusRestTime) {
                     var restText =
@@ -1082,6 +1154,7 @@ class _ActionFollowPracticeWithTTSState
 
                     // 休息完之后，休息状态强行改为fasle(休息时不能改动作索引)
                     isRestTurn = false;
+                    stageStartedMoment = DateTime.now();
                     // 注意，休息倒计时可能会被用户手动加一部分时间，所以当前休息倒计时结束时，还原为原始的休息时间
                     _cusRestTime = _defaultCusRestTime;
 
@@ -1095,7 +1168,7 @@ class _ActionFollowPracticeWithTTSState
             // 出现休息倒计时一定是在跟练中间的(最后一个跟练结束就跳弹窗了),所以不用判断按钮
             Expanded(
               flex: 1,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: () {
                   // 如果是休息的时候点击跳过休息，则总休息的时间就要跳过之前已经休息的时间
                   // 如果点击了+10s休息时间或者预设的休息时间，要做倒计时在完成时才累加。
@@ -1111,6 +1184,7 @@ class _ActionFollowPracticeWithTTSState
                   // 休息时点击跳过就直接到下一个跟练去(任何的休息中都不能改动作索引，只需要隐藏休息倒计时部件即可)
                   setState(() {
                     isRestTurn = false;
+                    stageStartedMoment = DateTime.now();
                     // 在跳过休息前，可能还有+10s的操作，但这里跳过了就不会倒计时完成，所有这里跳过时重置为默认的
                     _cusRestTime = _defaultCusRestTime;
                   });
@@ -1121,12 +1195,19 @@ class _ActionFollowPracticeWithTTSState
                   // 跳过休息倒计时也要重置是否点击增加休息时间按钮的标志
                   isClickPlusRestTime = false;
                 },
-                style: ButtonStyle(
-                  backgroundColor: WidgetStateProperty.all<Color>(
-                    Theme.of(context).primaryColor,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor,
+                  foregroundColor: Colors.white,
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10.sp),
                   ),
                 ),
-                child: Text(CusAL.of(context).nextLabel),
+                icon: const Icon(Icons.skip_next, size: 18),
+                label: Text(
+                  CusAL.of(context).skipLabel,
+                  style: const TextStyle(fontSize: 12),
+                ),
               ),
             ),
           ],
@@ -1192,8 +1273,16 @@ class _ActionFollowPracticeWithTTSState
 
       Expanded(
         flex: 3,
-        child: buildImageViewCarouselSlider(
-          _getExerciseImageList(actions[_currentIndex].exercise),
+        child: Center(
+          child: Icon(
+            actions[_currentIndex].exercise.category == '跑步'
+                ? Icons.directions_run
+                : actions[_currentIndex].exercise.category == '骑行'
+                ? Icons.directions_bike
+                : Icons.fitness_center,
+            size: 100.sp,
+            color: Theme.of(context).primaryColor.withOpacity(0.5),
+          ),
         ),
       ),
     ];
@@ -1205,10 +1294,20 @@ class _ActionFollowPracticeWithTTSState
     var tempTime =
         endTime.millisecondsSinceEpoch - startedMoment.millisecondsSinceEpoch;
 
+    // 如果当前处于休息状态，点击立即计划时，还需要累积当前已经休息的时间
+    int currentRestSpent = 0;
+    if (isRestTurn) {
+      currentRestSpent =
+          _cusRestTime - (int.tryParse(_restController.getTime() ?? "0") ?? 0);
+    }
+
     var totolTime = (tempTime / 1000).toStringAsFixed(0);
     var pausedTime = (totalPausedTimes / 1000).toStringAsFixed(0);
     var workoutTime =
-        (tempTime / 1000 - totalPausedTimes / 1000 - totalRestTimes)
+        (tempTime / 1000 -
+                totalPausedTimes / 1000 -
+                (totalRestTimes + currentRestSpent) -
+                totalDiscardedTime)
             .toStringAsFixed(0);
 
     // 训练日志
@@ -1225,7 +1324,9 @@ class _ActionFollowPracticeWithTTSState
       groupName: group?.groupName,
       groupCategory: group?.groupCategory,
       groupLevel: group?.groupLevel,
-      consumption: group?.consumption,
+      // 如果 group 没传消耗量，则根据时长估算 (每分钟 6.5 kcal 是一个相对合理的平均值)
+      consumption:
+          group?.consumption ?? (int.parse(workoutTime) / 60 * 6.5).toInt(),
       // 起止时间都是datetime格式化后的字符串
       trainedStartTime: formatDateToString(
         startedMoment,
@@ -1238,7 +1339,7 @@ class _ActionFollowPracticeWithTTSState
       // 单位都是秒
       trainedDuration: int.tryParse(workoutTime) ?? 0, // 实际训练时间
       totolPausedTime: int.tryParse(pausedTime) ?? 0, // 暂停的总时间
-      totalRestTime: int.tryParse(pausedTime) ?? 0, // 休息的总时间
+      totalRestTime: totalRestTimes + currentRestSpent, // 休息的总时间
     );
 
     try {
@@ -1282,18 +1383,10 @@ class _ActionFollowPracticeWithTTSState
             // 测试的
             TextButton(
               onPressed: () {
-                // 2023-12-23 先返回一个true，避免在then中的逻辑出错
                 Navigator.pop(context, true);
-
-                // ？？？这个pushReplacement 为什么跳到报告之后，点击返回还是回到这个跟练页面呢
-                // Navigator.of(context).pushReplacement(
-                //   MaterialPageRoute(builder: (_) => const TrainingReports()),
-                // );
-                // ？？？这样的 奇技淫巧先到最外层，再跳转到报告页面
-                // 要在workout和plan的index中，getGroupList()的setstate前先 if (!mounted) return; 否则会报错
-
-                Navigator.of(context).popUntil((route) => route.isFirst);
-                Navigator.of(context).push(
+                final navigator = Navigator.of(context);
+                navigator.popUntil((route) => route.isFirst);
+                navigator.push(
                   MaterialPageRoute(builder: (_) => const TrainingReports()),
                 );
               },

@@ -1,18 +1,11 @@
 // ignore_for_file: avoid_print
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
-import 'package:sqflite/sqflite.dart';
-import 'package:path_provider/path_provider.dart';
 
 import '../../models/diary_state.dart';
 import '../dio_client/cus_http_client.dart';
 import '../dio_client/api_endpoints.dart';
 import '../constants/constants.dart';
-import 'ddl_diary.dart';
 
 class DBDiaryHelper {
   ///
@@ -21,121 +14,16 @@ class DBDiaryHelper {
 
   // 单例模式
   static final DBDiaryHelper _dbDiaryHelper = DBDiaryHelper._createInstance();
-  // 构造函数，返回单例
   factory DBDiaryHelper() => _dbDiaryHelper;
-  // 数据库实例
-  static Database? _database;
 
-  // 创建sqlite的db文件成功后，记录该地址，以便删除时使用。
-  var diaryDbFilePath = "";
-
-  // 命名的构造函数用于创建DatabaseHelper的实例
   DBDiaryHelper._createInstance();
 
-  // 获取数据库实例
-  Future<Database> get database async => _database ??= await initializeDB();
+  // Stubs for compatibility
+  Future<void> deleteDB() async {}
+  Future<void> closeDB() async {}
 
-  // 初始化数据库
-  Future<Database> initializeDB() async {
-    // 获取存储数据库的目录路径
-    Directory directory = await getApplicationDocumentsDirectory();
-    String path = p.join(directory.path, DiaryDdl.databaseName);
-
-    print("初始化 DIARY sqlite数据库存放的地址：$path");
-
-    // 在给定路径上打开/创建数据库
-    var diaryDb = await openDatabase(path, version: 1, onCreate: _createDb);
-    diaryDbFilePath = path;
-    return diaryDb;
-  }
-
-  // 创建记录数据库相关表 (Decommissioned)
-  void _createDb(Database db, int newVersion) async {
-    print("开始创建表 _createDb (Diary moved to cloud)……");
-  }
-
-  // 关闭数据库
-  Future<bool> closeDB() async {
-    Database db = await database;
-
-    print("Diary db.isOpen ${db.isOpen}");
-    await db.close();
-    print("Diary db.isOpen ${db.isOpen}");
-
-    // 删除db或者关闭db都需要重置db为null，
-    // 否则后续会保留之前的连接，以致出现类似错误：Unhandled Exception: DatabaseException(database_closed 5)
-    // https://github.com/tekartik/sqflite/issues/223
-    _database = null;
-
-    // 如果已经关闭了，返回ture
-    return !db.isOpen;
-  }
-
-  // 删除sqlite的db文件（初始化数据库操作中那个path的值）
-  Future<void> deleteDB() async {
-    print("开始删除內嵌的 sqlite Diary db文件，db文件地址：$diaryDbFilePath");
-
-    // 先删除，再重置，避免仍然存在其他线程在访问数据库，从而导致删除失败
-    await deleteDatabase(diaryDbFilePath);
-
-    // 删除db或者关闭db都需要重置db为null，
-    // 否则后续会保留之前的连接，以致出现类似错误：Unhandled Exception: DatabaseException(database_closed 5)
-    // https://stackoverflow.com/questions/60848752/delete-database-when-log-out-and-create-again-after-log-in-dart
-    _database = null;
-  }
-
-  // 显示db中已有的table，默认的和自建立的
-  void showTableNameList() async {
-    Database db = await database;
-    var tableNames = (await db.query(
-      'sqlite_master',
-      where: 'type = ?',
-      whereArgs: ['table'],
-    )).map((row) => row['name'] as String).toList(growable: false);
-
-    print("Diary DB中拥有的表名:------------");
-    print(tableNames);
-  }
-
-  // 导出所有数据
-  Future<void> exportDatabase() async {
-    // 获取应用文档目录路径
-    Directory appDocDir = await getApplicationDocumentsDirectory();
-    // 创建或检索 db_export 文件夹
-    var tempDir = await Directory(p.join(appDocDir.path, "db_export")).create();
-
-    // 打开数据库
-    Database db = await database;
-
-    // 获取所有表名
-    List<Map<String, dynamic>> tables = await db.rawQuery(
-      "SELECT name FROM sqlite_master WHERE type='table'",
-    );
-
-    // 遍历所有表
-    for (Map<String, dynamic> table in tables) {
-      String tableName = table['name'];
-
-      // 不是自建的表，不导出
-      if (!tableName.startsWith("ff_")) {
-        continue;
-      }
-
-      String tempFilePath = p.join(tempDir.path, '$tableName.json');
-
-      // 查询表中所有数据
-      List<Map<String, dynamic>> result = await db.query(tableName);
-
-      // 将结果转换为JSON字符串
-      String jsonStr = jsonEncode(result);
-
-      // 创建临时导出文件
-      File tempFile = File(tempFilePath);
-
-      // 将JSON字符串写入临时文件
-      await tempFile.writeAsString(jsonStr);
-    }
-  }
+  Future<void> exportDatabase() async {}
+  void showTableNameList() {}
 
   ///
   ///  Helper 的相关方法
