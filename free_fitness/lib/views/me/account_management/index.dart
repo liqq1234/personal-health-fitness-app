@@ -4,7 +4,6 @@ import '../../../models/cus_app_localizations.dart';
 import '../../../models/user_state.dart';
 import '../../../services/user_api_service.dart';
 import '../../auth/login_page.dart';
-import '../user_info/modify_user/index.dart';
 
 class AccountManagement extends StatefulWidget {
   final User user;
@@ -130,21 +129,6 @@ class _AccountManagementState extends State<AccountManagement> {
       appBar: AppBar(title: const Text("账号管理")),
       body: ListView(
         children: [
-          ListTile(
-            leading: const Icon(Icons.badge_outlined),
-            title: const Text("修改账号名"),
-            subtitle: Text(widget.user.userName),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ModifyUserPage(user: widget.user),
-                ),
-              );
-            },
-          ),
-          const Divider(),
           ListTile(
             leading: const Icon(Icons.lock_outline),
             title: const Text("修改密码"),

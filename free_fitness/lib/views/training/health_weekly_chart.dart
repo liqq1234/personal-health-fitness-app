@@ -35,6 +35,10 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
     String startStr = DateFormat('yyyy-MM-dd').format(startDate);
     String endStr = DateFormat('yyyy-MM-dd').format(now);
 
+    debugPrint(
+      '【DEBUG】HealthWeeklyChart: Loading data from $startStr to $endStr',
+    );
+
     var stepsList = await _dbHelper.queryStepsList(
       startDate: startStr,
       endDate: endStr,
@@ -53,6 +57,7 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
     for (int i = 0; i < _daysToLoad; i++) {
       DateTime date = startDate.add(Duration(days: i));
       String dateStr = DateFormat('yyyy-MM-dd').format(date);
+      debugPrint('【DEBUG】HealthWeeklyChart: Querying diet for $dateStr');
 
       double steps = stepsList
           .where((e) => e.date == dateStr)

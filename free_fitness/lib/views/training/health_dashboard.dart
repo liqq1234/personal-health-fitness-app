@@ -82,6 +82,9 @@ class HealthDashboardState extends State<HealthDashboard> {
 
     // 获取今日排程
     try {
+      debugPrint(
+        '【DEBUG】Calling TrainingScheduleService.getDailySchedules(userId: ${CacheUser.userId}, date: $todayStr)',
+      );
       _todaySchedules = await TrainingScheduleService.getDailySchedules(
         CacheUser.userId,
         todayStr,
@@ -95,6 +98,9 @@ class HealthDashboardState extends State<HealthDashboard> {
     var sevenDaysAgoStr = sevenDaysAgo.toIso8601String().split('T')[0];
 
     // 详细请求 (Cloud)
+    debugPrint(
+      '【DEBUG】Calling DBDietaryHelper.queryDailyFoodItemListWithDetail(startDate: $sevenDaysAgoStr, endDate: $todayStr)',
+    );
     var recentDietDetails = await DBDietaryHelper()
         .queryDailyFoodItemListWithDetail(
           userId: CacheUser.userId,
@@ -104,12 +110,18 @@ class HealthDashboardState extends State<HealthDashboard> {
         );
 
     // 简易请求 (Local)
+    debugPrint(
+      '【DEBUG】Calling _dbHelper.queryDietList(startDate: $sevenDaysAgoStr, endDate: $todayStr)',
+    );
     var recentDietLogs = await _dbHelper.queryDietList(
       startDate: sevenDaysAgoStr,
       endDate: todayStr,
     );
 
     // 查询今日运动记录
+    debugPrint(
+      '【DEBUG】Calling _dbTrainingHelper.queryTrainedDetailLog(startDate: $todayStr, endDate: $todayStr)',
+    );
     var trainingLogs = await _dbTrainingHelper.queryTrainedDetailLog(
       userId: CacheUser.userId,
       startDate: todayStr,

@@ -26,6 +26,7 @@ public class HealthService {
     private final SleepRecordRepository sleepRepo;
     private final DietLogRepository dietLogRepo;
     private final ExerciseSessionRepository sessionRepo;
+    private final com.freefitness.training.repository.TrainedDetailLogRepository trainingLogRepo;
     private final AiExerciseService aiExerciseService;
     private final AiSleepService aiSleepService;
     private final com.freefitness.user.repository.UserRepository userRepo;
@@ -276,15 +277,28 @@ public class HealthService {
 
         // 2. AI 反馈分析 (最近14天)
         List<ExerciseSession> biWeeklySessions = sessionRepo.findByUserIdAndStartTimeBetweenOrderByStartTimeAsc(userId, startDateBiWeekly, endDate);
-        long activeDays = biWeeklySessions.stream().map(s -> s.getStartTime().substring(0, 10)).distinct().count();
-        double totalDist = biWeeklySessions.stream().mapToDouble(s -> s.getDistance() / 1000.0).sum();
-        double avgDist = activeDays > 0 ? totalDist / activeDays : 0;
+        List<com.freefitness.training.entity.TrainedDetailLog> biWeeklyTrainingLogs = trainingLogRepo.findByUserIdAndDateRange(userId,
+                startDateBiWeekly.substring(0, 10), endDate.substring(0, 10));
 
-        String summary = String.format("用户在过去14天内：有运动记录的天数为 %d 天，总运动距离 %.2f km，平均每次运动距离 %.2f km。",
-                activeDays, totalDist, avgDist);
+        // 合并活跃天数（会话 + 室内训练）
+        java.util.Set<String> activeDateSet = new java.util.HashSet<>();
+        biWeeklySessions.forEach(s -> activeDateSet.add(s.getStartTime().substring(0, 10)));
+        biWeeklyTrainingLogs.forEach(l -> activeDateSet.add(l.getTrainedDate()));
+        
+        long activeDays = activeDateSet.size();
+
+        // 强度计算：里程 + 室内训练换算 (每10分钟室内训练折算 1km)
+        double outdoorDist = biWeeklySessions.stream().mapToDouble(s -> s.getDistance() / 1000.0).sum();
+        double indoorDurationMins = biWeeklyTrainingLogs.stream().mapToDouble(l -> l.getTrainedDuration() / 60.0).sum();
+        double totalEffectDist = outdoorDist + (indoorDurationMins / 10.0);
+
+        double avgDist = activeDays > 0 ? totalEffectDist / activeDays : 0;
+
+        String summary = String.format("用户在过去14天内：有运动记录的天数为 %d 天（含室内跟练），换算总运动强度约为 %.2f km，平均每日强度 %.2f km。",
+                activeDays, totalEffectDist, avgDist);
 
         // 简单的评分逻辑
-        int score = (int) (activeDays * 7 + (totalDist > 20 ? 30 : totalDist * 1.5));
+        int score = (int) (activeDays * 7 + (totalEffectDist > 20 ? 30 : totalEffectDist * 1.5));
         if (score > 100) score = 100;
 
         // 生成个性化建议需要的用户信息
