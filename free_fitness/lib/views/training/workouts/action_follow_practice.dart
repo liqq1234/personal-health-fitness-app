@@ -96,6 +96,8 @@ class _ActionFollowPracticeWithTTSState
   int totalRestTimes = 0;
   // 弃掉的总时间(单位秒，针对用户点击了“返回”删除当前阶段数据的情况)
   int totalDiscardedTime = 0;
+  // 奖励的总时间(单位秒，针对用户点击了“跳过”提前完成动作的情况)
+  int totalBonusDuration = 0;
 
   // 记录当前阶段开始的时间，用于计算点击返回时要扣除的时间
   DateTime stageStartedMoment = DateTime.now();
@@ -1012,6 +1014,16 @@ class _ActionFollowPracticeWithTTSState
               // 如果已经是最后一个了，直接跳到结束弹窗？？？
               onPressed: _currentIndex >= actions.length - 1
                   ? () {
+                      // 1. 如果是计时模式且还没有结束，则把剩下的时间补齐
+                      var plannedDuration = _getCurrentActionDuration();
+                      var actualSpent = DateTime.now()
+                          .difference(stageStartedMoment)
+                          .inSeconds;
+
+                      if (actualSpent < plannedDuration) {
+                        totalBonusDuration += (plannedDuration - actualSpent);
+                      }
+
                       _showFinishedDialog();
                       // 已经是最后一个的话，就重置？？？
                       _actionController.pause();
@@ -1021,13 +1033,25 @@ class _ActionFollowPracticeWithTTSState
                   : () {
                       // 点击跳过就直接到下一个休息去
                       setState(() {
+                        // 1. 计算当前阶段原本应该耗费的时间和实际耗费的时间
+                        // 如果是计时模式且还没有结束，则把剩下的时间补齐
+                        var plannedDuration = _getCurrentActionDuration();
+                        var actualSpent = DateTime.now()
+                            .difference(stageStartedMoment)
+                            .inSeconds;
+
+                        // 如果提前结束了(实际用时 < 计划用时)，则补齐差額
+                        if (actualSpent < plannedDuration) {
+                          totalBonusDuration += (plannedDuration - actualSpent);
+                        }
+
                         // 记录已经花费的时间
                         // 下一个阶段从现在开始
                         stageStartedMoment = DateTime.now();
                         _currentIndex++;
                         isRestTurn = true;
 
-                        // 如果之前是暂停，点击上下一个时会自动开始，也就是暂停时间结束，此时要统计暂停的时间
+                        // 如果之前是暂停，点击上下一個時會自動開始，也就是暫停時間結束，此時要統計暫停的時間
                         if (isActionPause) {
                           totalPausedTimes +=
                               DateTime.now().millisecondsSinceEpoch -
@@ -1307,7 +1331,8 @@ class _ActionFollowPracticeWithTTSState
         (tempTime / 1000 -
                 totalPausedTimes / 1000 -
                 (totalRestTimes + currentRestSpent) -
-                totalDiscardedTime)
+                totalDiscardedTime +
+                totalBonusDuration)
             .toStringAsFixed(0);
 
     // 训练日志
