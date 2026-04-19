@@ -497,11 +497,6 @@ class _DietEntryPageState extends State<DietEntryPage> {
                   '脂 ${log.fat.toStringAsFixed(1)}g',
                   Colors.red,
                 ),
-                if (log.water > 0)
-                  _buildNutrientChip(
-                    '水 ${log.water.toStringAsFixed(0)}ml',
-                    Colors.cyan,
-                  ),
               ],
             ),
           ],

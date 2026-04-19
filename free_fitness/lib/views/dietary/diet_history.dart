@@ -55,7 +55,6 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
 
   double get _totalFat => _logs.fold(0, (sum, e) => sum + e.fat);
   double get _totalCarbs => _logs.fold(0, (sum, e) => sum + e.carbs);
-  double get _totalWater => _logs.fold(0, (sum, e) => sum + e.water);
 
   @override
   Widget build(BuildContext context) {
@@ -158,12 +157,6 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
                 '脂肪',
                 '${_totalFat.toStringAsFixed(1)}',
                 'g',
-                colorScheme,
-              ),
-              _buildSummaryItem(
-                '饮水',
-                '${_totalWater.toStringAsFixed(0)}',
-                'ml',
                 colorScheme,
               ),
             ],
@@ -282,11 +275,6 @@ class _DietHistoryPageState extends State<DietHistoryPage> {
                   '脂 ${log.fat.toStringAsFixed(1)}g',
                   Colors.red,
                 ),
-                if (log.water > 0)
-                  _buildNutrientChip(
-                    '水 ${log.water.toStringAsFixed(0)}ml',
-                    Colors.cyan,
-                  ),
               ],
             ),
           ],
