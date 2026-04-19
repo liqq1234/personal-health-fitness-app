@@ -101,16 +101,18 @@ class _UserInfoState extends State<UserInfo> {
                   children: [
                     // 没有修改头像，就用默认的
                     if (_avatarPath.isEmpty)
-                      CircleAvatar(
-                        maxRadius: 60.sp,
-                        backgroundColor: Colors.transparent,
-                        backgroundImage: const AssetImage(
-                          defaultAvatarImageUrl,
+                      Container(
+                        width: 120.sp,
+                        height: 120.sp,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.grey, width: 2.sp),
                         ),
-                        child: Container(
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.grey, width: 2.sp),
+                        child: CircleAvatar(
+                          maxRadius: 60.sp,
+                          backgroundColor: Colors.transparent,
+                          backgroundImage: const AssetImage(
+                            defaultAvatarImageUrl,
                           ),
                         ),
                       ),

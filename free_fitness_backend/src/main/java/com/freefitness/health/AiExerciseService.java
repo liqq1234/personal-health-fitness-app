@@ -28,12 +28,21 @@ public class AiExerciseService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public String generateExerciseFeedback(String exerciseSummary, Map<String, Object> userProfile) {
-        String profileStr = String.format("用户个人资料：年龄 %s, 性别 %s, 身高 %.1fcm, 体重 %.1fkg, BMI %.1f。",
-                userProfile.getOrDefault("age", "未知"),
-                userProfile.getOrDefault("gender", "未知"),
-                (Double)userProfile.getOrDefault("height", 0.0),
-                (Double)userProfile.getOrDefault("weight", 0.0),
-                (Double)userProfile.getOrDefault("bmi", 0.0));
+        double height = (Double) userProfile.getOrDefault("height", 0.0);
+        double weight = (Double) userProfile.getOrDefault("weight", 0.0);
+        double bmi    = (Double) userProfile.getOrDefault("bmi", 0.0);
+        Object age    = userProfile.getOrDefault("age", null);
+        Object gender = userProfile.getOrDefault("gender", null);
+
+        // 构建易于 AI 理解的用户资料描述（0 值改为"未填写"）
+        String heightStr = height > 0 ? String.format("%.1fcm", height) : "未填写";
+        String weightStr = weight > 0 ? String.format("%.1fkg", weight) : "未填写";
+        String bmiStr    = bmi    > 0 ? String.format("%.1f", bmi)      : "未知";
+        String ageStr    = age    != null ? age.toString() + "岁"        : "未填写";
+        String genderStr = gender != null && !gender.toString().isBlank() ? gender.toString() : "未填写";
+
+        String profileStr = String.format("用户个人资料：年龄 %s, 性别 %s, 身高 %s, 体重 %s, BMI %s。",
+                ageStr, genderStr, heightStr, weightStr, bmiStr);
 
         String systemPrompt = """
                 你是一名专业的运动健身教练。请结合用户的个人资料和过去两周的运动数据摘要，给出极其个性化的科学运动建议。
@@ -56,7 +65,7 @@ public class AiExerciseService {
                 - 语言简洁精炼，200字左右。
                 """;
 
-        String userContent = profileStr + "\\n" + exerciseSummary;
+        String userContent = profileStr + "\n" + exerciseSummary;
 
         try {
             HttpHeaders headers = new HttpHeaders();
