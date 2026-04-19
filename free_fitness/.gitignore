@@ -77,8 +77,8 @@ windows
 
 
 # 密钥与环境配置
-.env
-.env*
+**/.env
+**/.env*
 security_keys*
 
 
