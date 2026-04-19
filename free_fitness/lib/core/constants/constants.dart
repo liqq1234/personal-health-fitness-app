@@ -562,12 +562,5 @@ List<CusLabel> diaryCategoryList = [
   CusLabel(enLabel: 'Unknown', cnLabel: "其他", value: 'other'),
 ];
 
-// 导出是可下拉选择的值
-List<CusLabel> exportDateList = [
-  CusLabel(enLabel: "last 7 days", cnLabel: "最近7天", value: "seven"),
-  CusLabel(enLabel: "last 30 days", cnLabel: "最近30天", value: "thirty"),
-  CusLabel(enLabel: "all", cnLabel: "全部", value: "all"),
-];
-
 /// 上传的餐食图片默认存放的文件夹
 final MEAL_PHOTO_DIR = Directory('/storage/emulated/0/FreeFitness/MealPhotos');

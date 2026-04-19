@@ -12,7 +12,6 @@ import '../../../layout/themes/cus_font_size.dart';
 import '../../../models/cus_app_localizations.dart';
 import '../../../models/dietary_state.dart';
 import '../../../models/user_state.dart';
-import 'export/report_pdf_viewer.dart';
 import '../../../services/dietary_analysis_service.dart';
 import 'monthly_intake_line_chart.dart';
 import 'week_intake_bar.dart';
@@ -45,9 +44,6 @@ class _DietaryReportsState extends State<DietaryReports> {
 
   // 下拉切换的日期范围(默认今天)
   CusLabel dropdownValue = dietaryReportDisplayModeList.first;
-
-  // 导出数据时默认选中为最近7天
-  CusLabel exportValue = exportDateList.first;
 
   @override
   void initState() {
@@ -256,8 +252,6 @@ class _DietaryReportsState extends State<DietaryReports> {
               children: [
                 // 下拉按钮，切换报告的时间范围
                 buildDropdownButton(),
-                // 导出按钮，将指定选择日期范围报告数据导出成pdf
-                buildExportButton(),
               ],
             ),
           ],
@@ -1138,80 +1132,6 @@ class _DietaryReportsState extends State<DietaryReports> {
       isExpanded: false,
       // 将下划线设置为空的Container
       underline: Container(),
-    );
-  }
-
-  /// 点击导出按钮
-  IconButton buildExportButton() {
-    return IconButton(
-      onPressed: () async {
-        var dateSelected = await showDialog(
-          context: context,
-          builder: (context) {
-            return AlertDialog(
-              title: Text(CusAL.of(context).exportRangeNote),
-              content: SizedBox(
-                height: 60.sp,
-                child: Center(
-                  child: DropdownMenu<CusLabel>(
-                    width: 0.6.sw,
-                    initialSelection: exportDateList.first,
-                    onSelected: (CusLabel? value) {
-                      setState(() {
-                        exportValue = value!;
-                      });
-                    },
-                    dropdownMenuEntries: exportDateList
-                        .map<DropdownMenuEntry<CusLabel>>((CusLabel value) {
-                          return DropdownMenuEntry<CusLabel>(
-                            value: value,
-                            label: showCusLable(value),
-                          );
-                        })
-                        .toList(),
-                  ),
-                ),
-              ),
-              actions: [
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context, false);
-                  },
-                  child: Text(CusAL.of(context).cancelLabel),
-                ),
-                TextButton(
-                  onPressed: () {
-                    Navigator.pop(context, true);
-                  },
-                  child: Text(CusAL.of(context).confirmLabel),
-                ),
-              ],
-            );
-          },
-        );
-        // 弹窗选择导出范围不为空，且不为false，则默认是选择的日期范围
-        if (dateSelected != null && dateSelected) {
-          String tempStart, tempEnd;
-          if (exportValue.value == "seven") {
-            [tempStart, tempEnd] = getStartEndDateString(7);
-          } else if (exportValue.value == "thirty") {
-            [tempStart, tempEnd] = getStartEndDateString(30);
-          } else {
-            // 导出全部就近20年吧
-            [tempStart, tempEnd] = getStartEndDateString(365 * 20);
-          }
-
-          if (!mounted) return;
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) =>
-                  ReportPdfViewer(startDate: tempStart, endDate: tempEnd),
-            ),
-          );
-        }
-      },
-      icon: const Icon(Icons.print),
     );
   }
 }
