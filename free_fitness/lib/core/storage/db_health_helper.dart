@@ -230,7 +230,7 @@ class DBHealthHelper {
       var response = await HttpUtils.get(
         path: "${ApiEndpoints.healthSync}/exercise/analysis",
         queryParameters: {"userId": CacheUser.userId, "force": force},
-        showLoading: force, // 只有强制更新时才显示全局 loading
+        showLoading: false, // UI 已有局部 loading，此处不再重复显示全局 loading
       );
       return response;
     } catch (e) {
@@ -245,7 +245,7 @@ class DBHealthHelper {
       var response = await HttpUtils.get(
         path: "${ApiEndpoints.healthSync}/sleep/analysis",
         queryParameters: {"userId": CacheUser.userId, "force": force},
-        showLoading: force,
+        showLoading: false, // UI 已有局部 loading
       );
       return response;
     } catch (e) {
