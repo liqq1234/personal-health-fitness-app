@@ -21,8 +21,10 @@ public class DailySummary {
     private double totalCarbs;
     private double totalSodium;
     private double totalWater;
+    private String mealDescriptions;
 
     private List<MealSummary> meals;
+
 
     @Data
     @AllArgsConstructor

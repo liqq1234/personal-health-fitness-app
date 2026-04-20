@@ -113,7 +113,7 @@ class HttpRequest {
     dynamic closeToast;
     try {
       if (showLoading) {
-        closeToast = ToastUtils.showLoading('【等待响应中...】');
+        closeToast = ToastUtils.showLoading();
       }
       Response response = await HttpRequest.dio.request(
         path,

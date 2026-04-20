@@ -60,6 +60,15 @@ public class HealthController {
         return Result.success(healthService.getRecentSleeps(userId, limit));
     }
 
+    @Operation(summary = "删除睡眠记录")
+    @DeleteMapping("/sleeps/{sleepId}")
+    public Result<Void> deleteSleep(@AuthenticationPrincipal Long userId,
+                                    @PathVariable Long sleepId) {
+        healthService.deleteSleep(userId, sleepId);
+        return Result.success();
+    }
+
+
     // ─────────────── 简版饮食 2.4 ───────────────
 
     @Operation(summary = "新增简版饮食记录（仪表板来源）")

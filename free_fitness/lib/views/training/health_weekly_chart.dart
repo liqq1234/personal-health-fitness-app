@@ -135,12 +135,12 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
       maxRatio = trainingRatio > maxRatio ? trainingRatio : maxRatio;
     }
 
-    // 设置maxY为最大比率向上取整到0.1的倍数，再加0.1作为余量
+    // 设置maxY为最大比率向上取整到0.1的倍数，再加0.25作为余量（增加余量以防Tooltip遮挡）
     // 最小值为0.2，确保即使所有数据为0也有合理的显示范围
-    double maxY = ((maxRatio * 10).ceilToDouble() / 10).clamp(0.2, 1.2);
-    if (maxY - maxRatio < 0.1) {
-      maxY += 0.1;
-      if (maxY > 1.2) maxY = 1.2; // 限制最大为1.2，保持一致性
+    double maxY = ((maxRatio * 10).ceilToDouble() / 10).clamp(0.2, 1.25);
+    if (maxY - maxRatio < 0.25) {
+      maxY += 0.25;
+      if (maxY > 1.3) maxY = 1.3; // 稍微放宽上限，确保显示完整
     }
 
     return Card(
@@ -151,24 +151,9 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
       ),
       child: Column(
         children: [
-          Padding(
-            padding: EdgeInsets.all(12.sp),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                _buildLegend('步数', Colors.green),
-                SizedBox(width: 8.sp),
-                _buildLegend('饮食', Colors.orange),
-                SizedBox(width: 8.sp),
-                _buildLegend('睡眠', Colors.blue),
-                SizedBox(width: 8.sp),
-                _buildLegend('训练', Colors.teal),
-              ],
-            ),
-          ),
           Container(
             height: 220.sp,
-            padding: EdgeInsets.only(bottom: 8.sp),
+            padding: EdgeInsets.only(bottom: 8.sp, top: 12.sp), // 增加顶部内边距
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               reverse: true, // 初始位置靠右，即显示“今日”
@@ -183,6 +168,11 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
                       touchTooltipData: BarTouchTooltipData(
                         getTooltipColor: (_) =>
                             colorScheme.primaryContainer.withOpacity(0.9),
+                        tooltipMargin: 0, // 提示框紧贴侧边
+                        tooltipHorizontalAlignment: FLHorizontalAlignment.right,
+                        tooltipHorizontalOffset: 12.sp, // 向右偏移，避免重叠
+                        fitInsideHorizontally: true,
+                        fitInsideVertically: true,
                         getTooltipItem: (group, groupIndex, rod, rodIndex) {
                           var data = _allData[groupIndex];
                           String label = "";
@@ -280,6 +270,21 @@ class _HealthWeeklyChartState extends State<HealthWeeklyChart> {
                   ),
                 ),
               ),
+            ),
+          ),
+          Padding(
+            padding: EdgeInsets.symmetric(vertical: 12.sp), // 移动到下方并调整间距
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _buildLegend('步数', Colors.green),
+                SizedBox(width: 8.sp),
+                _buildLegend('饮食', Colors.orange),
+                SizedBox(width: 8.sp),
+                _buildLegend('睡眠', Colors.blue),
+                SizedBox(width: 8.sp),
+                _buildLegend('训练', Colors.teal),
+              ],
             ),
           ),
         ],

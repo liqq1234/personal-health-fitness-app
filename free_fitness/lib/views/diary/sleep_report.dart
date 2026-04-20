@@ -140,11 +140,83 @@ class _SleepReportPageState extends State<SleepReportPage>
                   itemCount: _records.length,
                   itemBuilder: (context, index) {
                     final r = _records[index];
-                    return _buildRecordItem(r, colorScheme);
+                    return Dismissible(
+                      key: Key('sleep_${r.id}_${r.startTime}'),
+                      direction: DismissDirection.endToStart,
+                      background: Container(
+                        alignment: Alignment.centerRight,
+                        padding: EdgeInsets.symmetric(horizontal: 20.sp),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          borderRadius: BorderRadius.circular(12.sp),
+                        ),
+                        margin: EdgeInsets.only(bottom: 12.sp),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            Text(
+                              '向左滑动删除',
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            SizedBox(width: 8.sp),
+                            const Icon(Icons.delete_sweep, color: Colors.white),
+                          ],
+                        ),
+                      ),
+                      onDismissed: (direction) async {
+                        if (r.id != null) {
+                          _deleteRecord(r);
+                        }
+                      },
+                      confirmDismiss: (direction) async {
+                        return await _showDeleteConfirmDialog(r);
+                      },
+                      child: InkWell(
+                        onLongPress: () async {
+                          bool? delete = await _showDeleteConfirmDialog(r);
+                          if (delete == true && r.id != null) {
+                            await _deleteRecord(r);
+                          }
+                        },
+                        borderRadius: BorderRadius.circular(12.sp),
+                        child: _buildRecordItem(r, colorScheme),
+                      ),
+                    );
                   },
                 ),
         ),
       ],
+    );
+  }
+
+  Future<void> _deleteRecord(SleepRecord r) async {
+    if (r.id != null) {
+      await _dbHelper.deleteSleep(r.id!);
+      _loadData();
+    }
+  }
+
+  Future<bool?> _showDeleteConfirmDialog(SleepRecord r) async {
+    return await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('删除此条睡眠记录？这将直接影响 AI 的趋势分析结果。'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('确认删除', style: TextStyle(color: Colors.red)),
+          ),
+        ],
+      ),
     );
   }
 

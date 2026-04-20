@@ -2,6 +2,7 @@ package com.freefitness.dietary;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.freefitness.dietary.dto.AiParseResponse;
+import com.freefitness.dietary.dto.NutritionAnalysis;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -90,20 +91,23 @@ public class AiDietaryService {
                 你是一名资深的营养咨询专家。请根据用户当天的饮食摄入数据和设定的目标，给出专业的、温和的、具有可操作性的饮食改进建议。
                 注意点：
                 1. 语气必须亲切友好。
-                2. 针对能量(Calories)、蛋白质(Protein)、碳水(Carbs)、脂肪(Fat)和水分(Water)的缺口给出具体建议。
-                3. 如果水分摄入不足，必须特别提醒多喝水。
+                2. 针对能量(Calories)、蛋白质(Protein)、碳水(Carbs)、脂肪(Fat)的缺口给出具体建议。
+                3. 禁止提到水分(Water)或喝水相关的摄入建议，即使数据中显示摄入不足。
                 4. 请分点阐述建议（1, 2, 3...）。
                 5. 保持简洁，字数控制在200字以内。
+                6. 请以专家身份直接给出建议，不要包含任何引导对话或邀请互动的结尾（例如“有问题随时问我”），因为这里不是聊天界面。
                 """;
 
         String userIntake = String.format(
-                "今日摄入实况：热量 %.1f kcal (目标 %.1f), 蛋白质 %.1f g (目标 %.1f), 碳水 %.1f g (目标 %.1f), 脂肪 %.1f g (目标 %.1f), 水分 %.1f ml (目标 %.1f)。",
+                "今日饮食详情：%s。" +
+                "今日摄入实况：热量 %.1f kcal (目标 %.1f), 蛋白质 %.1f g (目标 %.1f), 碳水 %.1f g (目标 %.1f), 脂肪 %.1f g (目标 %.1f)。",
+                analysis.getMealDescriptions() != null ? analysis.getMealDescriptions() : "暂无具体明细",
                 analysis.getCurrentCalories(), analysis.getTargetCalories(),
                 analysis.getCurrentProtein(), analysis.getTargetProtein(),
                 analysis.getCurrentCarbs(), analysis.getTargetCarbs(),
-                analysis.getCurrentFat(), analysis.getTargetFat(),
-                analysis.getCurrentWater(), analysis.getTargetWater()
+                analysis.getCurrentFat(), analysis.getTargetFat()
         );
+
 
         try {
             HttpHeaders headers = new HttpHeaders();
@@ -128,7 +132,7 @@ public class AiDietaryService {
             log.error("AI 生成建议出错: {}", e.getMessage());
         }
 
-        return "基于当前数据，建议保持均衡饮食，多喝水，多吃新鲜果蔬。";
+        return "基于当前数据，建议保持均衡饮食，多吃新鲜果蔬。";
     }
 
     private AiParseResponse fallbackParse(String text) {

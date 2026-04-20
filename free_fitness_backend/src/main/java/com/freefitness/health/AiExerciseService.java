@@ -63,6 +63,7 @@ public class AiExerciseService {
                 - 语气专业、亲切、有感染力。
                 - 必须整合用户的身体素质（BMI/年龄）和近期运动表现。
                 - 语言简洁精炼，200字左右。
+                - 请以专家身份直接给出建议，不要包含类似“有问题随时问我”、“随时为你服务”等引导对话或邀请互动的结尾，因为这里不是聊天界面。
                 """;
 
         String userContent = profileStr + "\n" + exerciseSummary;

@@ -66,6 +66,16 @@ public class HealthService {
         return sleepRepo.findByUserIdOrderByStartTimeDesc(userId, PageRequest.of(0, limit));
     }
 
+    @Transactional
+    public void deleteSleep(Long userId, Long sleepId) {
+        sleepRepo.findById(sleepId).ifPresent(record -> {
+            if (record.getUserId().equals(userId)) {
+                sleepRepo.deleteById(sleepId);
+            }
+        });
+    }
+
+
     // ─────────────── 2.4 简版饮食 ───────────────
 
     @Transactional
@@ -354,15 +364,61 @@ public class HealthService {
         }
 
         LocalDate now = LocalDate.now();
-        String endDate = now.toString() + "T23:59:59";
-        String startDateWeekly = now.minusDays(6).toString() + "T00:00:00";
-        String startDateBiWeekly = now.minusDays(13).toString() + "T00:00:00";
-
         // 1. 图表数据
         List<com.freefitness.health.dto.SleepAnalysis.DailyStat> weeklyData = buildWeeklySleepData(userId);
 
         // 2. AI 分析摘要 (最近14天)
         List<SleepRecord> biWeeklySleeps = sleepRepo.findByUserIdOrderByStartTimeDesc(userId, PageRequest.of(0, 14));
+        
+        // --- 模式分析逻辑 ---
+        int consecutive8hDays = 0;
+        double totalStartTimeHours = 0;
+        int validStartTimeCount = 0;
+        StringBuilder notesBuilder = new StringBuilder();
+
+        // 统计最近7天（按日期升序排列）的连续达标天数
+        java.util.List<SleepRecord> recent7 = biWeeklySleeps.stream()
+                .limit(7)
+                .sorted(java.util.Comparator.comparing(SleepRecord::getStartTime))
+                .toList();
+        
+        int currentConsecutive = 0;
+        for (SleepRecord r : recent7) {
+            if (r.getDurationHours() != null && r.getDurationHours() >= 8.0) {
+                currentConsecutive++;
+                consecutive8hDays = Math.max(consecutive8hDays, currentConsecutive);
+            } else {
+                currentConsecutive = 0;
+            }
+        }
+
+        for (SleepRecord r : biWeeklySleeps) {
+            try {
+                String st = r.getStartTime();
+                if (st != null && st.length() >= 13) {
+                    // 提取 HH 部分，考虑日期格式 yyyy-mm-ddTHH:mm:ss
+                    int hour = Integer.parseInt(st.substring(11, 13));
+                    // 简单转换：22-24点转为负数或大数，统一计算均值点
+                    // 这里采用：22点=22, 23点=23, 00点=24, 01点=25...
+                    if (hour < 12) hour += 24; 
+                    totalStartTimeHours += hour;
+                    validStartTimeCount++;
+                }
+            } catch (Exception ignored) {}
+
+            if (r.getNote() != null && !r.getNote().isBlank()) {
+                notesBuilder.append(r.getNote()).append("; ");
+            }
+        }
+
+        double avgBedtimeRaw = validStartTimeCount > 0 ? totalStartTimeHours / validStartTimeCount : -1;
+        String avgBedtimeStr = "未知";
+        if (avgBedtimeRaw >= 0) {
+            int h = (int) avgBedtimeRaw;
+            if (h >= 24) h -= 24;
+            avgBedtimeStr = String.format("%02d:00 左右", h);
+        }
+
         double totalDuration = biWeeklySleeps.stream().mapToDouble(SleepRecord::getDurationHours).sum();
         double avgDuration = biWeeklySleeps.isEmpty() ? 0 : totalDuration / biWeeklySleeps.size();
 
@@ -375,21 +431,32 @@ public class HealthService {
                 .mapToInt(SleepRecord::getQuality)
                 .average().orElse(0);
 
-        // 评分逻辑：时长占 80 分，质量占 20 分
-        int score = (int) (avgDuration >= 7 && avgDuration <= 9.5 ? 80 : 60);
+        // 综合评分逻辑：时长基础 70 + 连续性奖励 + 显式质量奖励
+        int score = (int) (avgDuration >= 7 && avgDuration <= 9.5 ? 75 : 60);
+        
+        // 连续性奖励 (最高 15 分)
+        if (consecutive8hDays >= 7) score += 15;
+        else if (consecutive8hDays >= 4) score += 10;
+        else if (consecutive8hDays >= 2) score += 5;
 
-        // 如果有质量分，按比例加成；如果没有质量分，默认给一个中性能（15/20）以避免显示为极低分
+        // 显式质量加成 (最高 10 分)
         if (avgQuality >= 0) {
-            score += (avgQuality / 5.0);
+            score += (avgQuality / 10.0);
         } else {
-            score += 15; // 补偿分
+            score += 5; // 补评分
         }
 
         if (score > 100) score = 100;
 
-        String qualityInfo = avgQuality >= 0 ? String.format("%.1f/100", avgQuality) : "未记录数据";
-        String summary = String.format("用户在过去两周内：共有 %d 条睡眠记录，平均每晚时长 %.1f 小时，综合睡眠得分 %d/100，其中睡眠质量评价：%s。",
-                biWeeklySleeps.size(), avgDuration, score, qualityInfo);
+        String qualityInfo = avgQuality >= 0 ? String.format("%.1f/100", avgQuality) : "暂未通过评分记录质量";
+        String summary = String.format(
+                "睡眠数据摘要：\\n" +
+                "1. 基本指标：记录数 %d，平均每晚时长 %.1f 小时。\\n" +
+                "2. 深度模式：最近 7 天内连续满 8 小时睡眠的天数为 %d 天；平均入睡时间点在 %s。\\n" +
+                "3. 用户自评质量：平均 %s。\\n" +
+                "4. 习惯备注： %s",
+                biWeeklySleeps.size(), avgDuration, consecutive8hDays, avgBedtimeStr, qualityInfo,
+                notesBuilder.length() > 0 ? notesBuilder.toString() : "无专门备注");
 
         // 获取用户信息
         Map<String, Object> userProfile = new java.util.HashMap<>();
@@ -417,6 +484,7 @@ public class HealthService {
 
         return new com.freefitness.health.dto.SleepAnalysis(weeklyData, feedback, score);
     }
+
 
     private List<com.freefitness.health.dto.SleepAnalysis.DailyStat> buildWeeklySleepData(Long userId) {
         LocalDate now = LocalDate.now();

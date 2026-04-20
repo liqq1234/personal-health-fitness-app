@@ -31,6 +31,11 @@ public class DietLog {
     @Column(name = "food_name", nullable = false, length = 128)
     private String foodName;
 
+    public String getFoodName() {
+        return foodName;
+    }
+
+
     @Column(name = "calories", nullable = false)
     private Double calories;
 

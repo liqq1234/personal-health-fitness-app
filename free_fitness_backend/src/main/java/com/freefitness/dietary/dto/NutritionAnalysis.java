@@ -39,4 +39,6 @@ public class NutritionAnalysis {
     // Recommendations
     private List<String> recommendations;
     private String statusSummary; // e.g. "Excellent", "Protein Deficit", "Too much Fat"
+    private String mealDescriptions; // String describing the meals eaten (names and amounts)
 }
+

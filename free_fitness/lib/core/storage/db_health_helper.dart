@@ -107,6 +107,19 @@ class DBHealthHelper {
     return [];
   }
 
+  Future<int> deleteSleep(int sleepId) async {
+    try {
+      await HttpUtils.delete(
+        path: "${ApiEndpoints.healthSync}/sleeps/$sleepId",
+        showLoading: false,
+      );
+      return 1;
+    } catch (e) {
+      print("Delete sleep failed: $e");
+      return 0;
+    }
+  }
+
   ///***********************************************/
   /// 饮食相关操作
   ///

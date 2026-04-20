@@ -1,6 +1,8 @@
 package com.freefitness.auth;
 
 import com.freefitness.common.util.JwtUtil;
+import com.freefitness.auth.dto.LoginRequest;
+import com.freefitness.auth.dto.RegisterRequest;
 import com.freefitness.user.entity.User;
 import com.freefitness.user.repository.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,26 +48,35 @@ class AuthServiceTest {
             saved.setUserId(1L);
             return saved;
         });
-        when(jwtUtil.generateToken(anyLong())).thenReturn("fakeToken");
+        when(jwtUtil.generateAccessToken(anyLong(), anyString())).thenReturn("fakeAccess");
+        when(jwtUtil.generateRefreshToken(anyLong(), anyString())).thenReturn("fakeRefresh");
 
-        var result = authService.register(user);
+        RegisterRequest req = new RegisterRequest();
+        req.setUserCode("test_user");
+        req.setPassword("rawPass");
+        
+        var result = authService.register(req);
         assertNotNull(result);
         assertEquals(1L, result.getUserId());
-        assertEquals("fakeToken", result.getToken());
+        assertEquals("fakeAccess", result.getToken());
     }
 
     @Test
     void testLoginSuccess() {
         User existing = new User();
         existing.setUserId(1L);
-        existing.setEmail("test@ex.com");
+        existing.setUserCode("test_user");
         existing.setPassword("hashedPass");
 
-        when(userRepository.findByEmail("test@ex.com")).thenReturn(Optional.of(existing));
+        when(userRepository.findByUserCode("test_user")).thenReturn(Optional.of(existing));
         when(passwordEncoder.matches("rawPass", "hashedPass")).thenReturn(true);
-        when(jwtUtil.generateToken(1L)).thenReturn("fakeToken");
+        when(jwtUtil.generateAccessToken(1L, "test_user")).thenReturn("fakeAccess");
 
-        var result = authService.login("test@ex.com", "rawPass");
-        assertEquals("fakeToken", result.getToken());
+        LoginRequest req = new LoginRequest();
+        req.setUserCode("test_user");
+        req.setPassword("rawPass");
+
+        var result = authService.login(req);
+        assertEquals("fakeAccess", result.getToken());
     }
 }

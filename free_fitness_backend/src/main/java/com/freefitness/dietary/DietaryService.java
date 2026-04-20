@@ -4,6 +4,8 @@ import com.freefitness.common.service.FileStorageService;
 import com.freefitness.dietary.dto.DailySummary;
 import com.freefitness.dietary.entity.*;
 import com.freefitness.dietary.repository.*;
+import com.freefitness.health.entity.DietLog;
+import com.freefitness.health.repository.DietLogRepository;
 import com.freefitness.user.entity.User;
 import com.freefitness.user.repository.UserRepository;
 import com.freefitness.dietary.dto.NutritionAnalysis;
@@ -36,6 +38,7 @@ public class DietaryService {
     private final FileStorageService storageService;
     private final UserRepository userRepo;
     private final AiDietaryService aiService;
+    private final DietLogRepository simplifiedDietRepo;
 
     @Value("${storage.meal-photo-dir}")
     private String mealPhotoDir;
@@ -178,32 +181,99 @@ public class DietaryService {
     // ──────── 4.5 每日营养汇总 ────────
 
     public DailySummary getDailySummary(Long userId, String date) {
-        List<DailyFoodItem> items = itemRepo.findByUserIdAndDateOrderByGmtCreateAsc(userId, date);
-        Map<String, List<DailyFoodItem>> byMeal = items.stream()
-                .collect(Collectors.groupingBy(DailyFoodItem::getMealCategory));
+        // 1. 获取详细条目 (Detailed Items)
+        List<DailyFoodItem> detailedItems = itemRepo.findByUserIdAndDateOrderByGmtCreateAsc(userId, date);
+        // 2. 获取简版记录 (Simplified Logs)
+        List<DietLog> simplifiedLogs = simplifiedDietRepo.findByUserIdAndDateOrderByGmtCreateAsc(userId, date);
 
-        List<DailySummary.MealSummary> meals = byMeal.entrySet().stream().map(entry -> {
-            String cat = entry.getKey();
-            List<DailyFoodItem> mealItems = entry.getValue();
-            double[] macros = calculateMacros(mealItems);
-            return new DailySummary.MealSummary(cat, macros[0], macros[1], macros[2], macros[3], mealItems.size());
+        // 按餐次分组聚合
+        Map<String, List<DailyFoodItem>> detailedByMeal = detailedItems.stream()
+                .collect(Collectors.groupingBy(DailyFoodItem::getMealCategory));
+        Map<String, List<DietLog>> simplifiedByMeal = simplifiedLogs.stream()
+                .collect(Collectors.groupingBy(DietLog::getCategory));
+
+        Set<String> allCategories = new HashSet<>();
+        allCategories.addAll(detailedByMeal.keySet());
+        allCategories.addAll(simplifiedByMeal.keySet());
+
+        List<DailySummary.MealSummary> meals = allCategories.stream().map(cat -> {
+            List<DailyFoodItem> dItems = detailedByMeal.getOrDefault(cat, Collections.emptyList());
+            List<DietLog> sLogs = simplifiedByMeal.getOrDefault(cat, Collections.emptyList());
+
+            double[] dMacros = calculateMacros(dItems);
+            double sCal = sLogs.stream().mapToDouble(l -> l.getCalories() != null ? l.getCalories() : 0).sum();
+            double sProt = sLogs.stream().mapToDouble(l -> l.getProtein() != null ? l.getProtein() : 0).sum();
+            double sFat = sLogs.stream().mapToDouble(l -> l.getFat() != null ? l.getFat() : 0).sum();
+            double sCarb = sLogs.stream().mapToDouble(l -> l.getCarbs() != null ? l.getCarbs() : 0).sum();
+
+            return new DailySummary.MealSummary(
+                    cat,
+                    round(dMacros[0] + sCal),
+                    round(dMacros[1] + sProt),
+                    round(dMacros[2] + sFat),
+                    round(dMacros[3] + sCarb),
+                    dItems.size() + sLogs.size()
+            );
         }).sorted(Comparator.comparing(DailySummary.MealSummary::getMealCategory))
           .collect(Collectors.toList());
 
-        double[] totals = calculateMacros(items);
-        double totalSodium = items.stream().mapToDouble(item -> {
+        // 计算总计
+        double[] detailedTotals = calculateMacros(detailedItems);
+        double totalLogCal = simplifiedLogs.stream().mapToDouble(l -> l.getCalories() != null ? l.getCalories() : 0).sum();
+        double totalLogProt = simplifiedLogs.stream().mapToDouble(l -> l.getProtein() != null ? l.getProtein() : 0).sum();
+        double totalLogFat = simplifiedLogs.stream().mapToDouble(l -> l.getFat() != null ? l.getFat() : 0).sum();
+        double totalLogCarb = simplifiedLogs.stream().mapToDouble(l -> l.getCarbs() != null ? l.getCarbs() : 0).sum();
+        double totalLogWater = simplifiedLogs.stream().mapToDouble(l -> l.getWater() != null ? l.getWater() : 0).sum();
+
+        double totalSodium = detailedItems.stream().mapToDouble(item -> {
             ServingInfo si = servingInfoRepo.findById(item.getServingInfoId()).orElse(null);
             if (si == null) return 0;
             double ratio = item.getFoodIntakeSize() / si.getServingSize();
             return si.getSodium() * ratio;
         }).sum();
 
-        double totalWater = items.stream()
+        double detailedWater = detailedItems.stream()
                 .mapToDouble(i -> i.getWater() != null ? i.getWater() : 0.0)
                 .sum();
 
-        return new DailySummary(date, totals[0], totals[1], totals[2], totals[3], totalSodium, totalWater, meals);
+        StringBuilder mealDesc = new StringBuilder();
+        if (!detailedItems.isEmpty()) {
+            mealDesc.append("详细记录: ");
+            for (int i = 0; i < detailedItems.size(); i++) {
+                DailyFoodItem item = detailedItems.get(i);
+                Food f = foodRepo.findById(item.getFoodId()).orElse(null);
+                String name = (f != null) ? (f.getBrand() + " " + f.getProduct()) : "未知";
+                mealDesc.append(name).append("(").append(item.getFoodIntakeSize()).append("g)");
+                if (i < detailedItems.size() - 1) mealDesc.append(", ");
+            }
+        }
+
+        if (!simplifiedLogs.isEmpty()) {
+            if (mealDesc.length() > 0) mealDesc.append("; ");
+            mealDesc.append("快捷记录: ");
+            for (int i = 0; i < simplifiedLogs.size(); i++) {
+                com.freefitness.health.entity.DietLog log = simplifiedLogs.get(i);
+                mealDesc.append(log.getFoodName());
+                if (i < simplifiedLogs.size() - 1) mealDesc.append(", ");
+            }
+
+        }
+
+
+        return new DailySummary(
+                date,
+                round(detailedTotals[0] + totalLogCal),
+                round(detailedTotals[1] + totalLogProt),
+                round(detailedTotals[2] + totalLogFat),
+                round(detailedTotals[3] + totalLogCarb),
+                round(totalSodium),
+                round(detailedWater + totalLogWater),
+                mealDesc.toString(),
+                meals
+        );
     }
+
+
 
     private double[] calculateMacros(List<DailyFoodItem> items) {
         double cal = 0, prot = 0, fat = 0, carb = 0;
@@ -277,9 +347,12 @@ public class DietaryService {
                 .targetCarbs(round(targetCarbs))
                 .targetWater(user.getWaterGoal() != null ? user.getWaterGoal() : 2000.0)
                 .recommendations(new ArrayList<>())
+                .mealDescriptions(summary.getMealDescriptions())
                 .build();
 
+
         analysis.setCalorieGap(round(analysis.getTargetCalories() - analysis.getCurrentCalories()));
+
         analysis.setProteinGap(round(analysis.getTargetProtein() - analysis.getCurrentProtein()));
         analysis.setFatGap(round(analysis.getTargetFat() - analysis.getCurrentFat()));
         analysis.setCarbsGap(round(analysis.getTargetCarbs() - analysis.getCurrentCarbs()));
